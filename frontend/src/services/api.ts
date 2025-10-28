@@ -10,6 +10,15 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  // Do not attach Authorization header for auth endpoints (login/register/refresh).
+  // If a stale/invalid token is present in localStorage it can cause the server
+  // to attempt authentication and return 401 before the view's AllowAny
+  // permission is evaluated.
+  const skipAuthPaths = ['/token/', '/token/refresh/', '/user/register/'];
+  const url = config.url || '';
+  const shouldSkip = skipAuthPaths.some((p) => url.endsWith(p));
+  if (shouldSkip) return config;
+
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
