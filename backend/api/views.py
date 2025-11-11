@@ -1,7 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from rest_framework import generics
-from .serializers import UserSerializer
+from .serializers import UserSerializer, TripSerializer
+from .models import Trip
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 class UserCreateView(generics.CreateAPIView):
@@ -10,4 +11,13 @@ class UserCreateView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
 
-# Create your views here.
+class TripCreateView(generics.CreateAPIView):
+    queryset = Trip.objects.all()
+    serializer_class = TripSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class TripListView(generics.ListAPIView):
+    queryset = Trip.objects.all()
+    serializer_class = TripSerializer
+    permission_classes = [IsAuthenticated]

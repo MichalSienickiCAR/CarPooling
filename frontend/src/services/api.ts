@@ -60,3 +60,40 @@ export const authService = {
     return null;
   },
 };
+
+export interface Trip {
+  id?: number;
+  driver?: number;
+  driver_username?: string;
+  start_location: string;
+  end_location: string;
+  intermediate_stops: string[];
+  date: string;
+  time: string;
+  available_seats: number;
+  price_per_seat: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TripFormData {
+  start_location: string;
+  end_location: string;
+  intermediate_stops: string[];
+  date: string;
+  time: string;
+  available_seats: number;
+  price_per_seat: number;
+}
+
+export const tripService = {
+  async createTrip(tripData: TripFormData) {
+    const response = await api.post('/trips/create/', tripData);
+    return response.data;
+  },
+
+  async getTrips() {
+    const response = await api.get('/trips/');
+    return response.data;
+  },
+};

@@ -101,11 +101,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'carpooling',
-        'USER': 'carpool',
-        'PASSWORD': 'ZJ<170yuJ~{>rOx3c_Mq@b$g',
-        'HOST': 'localhost',  # lub adres serwera PostgreSQL
-        'PORT': '5432',       # domyślny port PostgreSQL
+        'NAME': os.getenv('DB_NAME', 'carpooling'),
+        'USER': os.getenv('DB_USER', 'carpool'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'ZJ<170yuJ~{>rOx3c_Mq@b$g'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
