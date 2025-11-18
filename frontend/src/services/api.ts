@@ -60,3 +60,75 @@ export const authService = {
     return null;
   },
 };
+
+export interface Trip {
+  id?: number;
+  driver?: number;
+  driver_username?: string;
+  start_location: string;
+  end_location: string;
+  intermediate_stops: string[];
+  date: string;
+  time: string;
+  available_seats: number;
+  price_per_seat: number;
+  created_at?: string;
+  updated_at?: string;
+  bookings?: Booking[];
+}
+
+export interface Booking {
+  id: number;
+  passenger: number;
+  passenger_username: string;
+  seats: number;
+  status: string;
+  created_at: string;
+}
+
+export interface TripFormData {
+  start_location: string;
+  end_location: string;
+  intermediate_stops: string[];
+  date: string;
+  time: string;
+  available_seats: number;
+  price_per_seat: number;
+}
+
+export const tripService = {
+  async createTrip(tripData: TripFormData) {
+    const response = await api.post('/trips/', tripData);
+    return response.data;
+  },
+
+  async getTrips() {
+    const response = await api.get('/trips/');
+    return response.data;
+  },
+
+  async getMyTrips() {
+    const response = await api.get('/trips/my_trips/');
+    return response.data;
+  },
+
+  async searchTrips(queryParams: string) {
+    const response = await api.get(`/trips/search/?${queryParams}`);
+    return response.data;
+  },
+
+  async updateTrip(tripId: number, tripData: TripFormData) {
+    const response = await api.patch(`/trips/${tripId}/`, tripData);
+    return response.data;
+  },
+
+  async cancelTrip(tripId: number) {
+    const response = await api.post(`/trips/${tripId}/cancel/`);
+    return response.data;
+  },
+
+  async getPassengers(tripId: number) {
+    const response = await api.get(`/trips/${tripId}/passengers/`);
+    return response.data as Booking[];
+  },
+};
