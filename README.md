@@ -2,11 +2,11 @@
 
 Projekt zespołowy - aplikacja do wspólnych przejazdów (carpooling).
 
-## 📋 Opis projektu
+## Opis projektu
 
 Aplikacja webowa umożliwiająca użytkownikom organizowanie wspólnych przejazdów. Kierowcy mogą dodawać przejazdy, a pasażerowie mogą wyszukiwać i rezerwować miejsca w przejazdach.
 
-## 🏗️ Struktura projektu
+## Struktura projektu
 
 ```
 carpooling/
@@ -54,30 +54,95 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Utwórz plik `.env` w katalogu `backend/` (jeśli nie istnieje):
-```env
-DB_NAME=carpooling
-DB_USER=carpool
-DB_PASSWORD=twoje_haslo
-DB_HOST=localhost
-DB_PORT=5432
-SECRET_KEY=twoj-secret-key
-DEBUG=True
-```
+4. **Skonfiguruj PostgreSQL:**
+   
+   a. Upewnij się, że PostgreSQL jest zainstalowany i uruchomiony na Twoim systemie.
+   
+   b. Utwórz bazę danych w PostgreSQL:
+   ```sql
+   -- Zaloguj się do PostgreSQL jako superuser
+   psql -U postgres
+   
+   -- Utwórz bazę danych
+   CREATE DATABASE carpooling;
+   
+   -- (Opcjonalnie) Utwórz użytkownika
+   CREATE USER carpool WITH PASSWORD 'twoje_haslo';
+   GRANT ALL PRIVILEGES ON DATABASE carpooling TO carpool;
+   ```
+   
+   c. Utwórz plik `.env` w katalogu `backend/` z następującą konfiguracją:
+   ```env
+   # Django Settings
+   SECRET_KEY=twoj-secret-key-tutaj
+   DEBUG=True
+   
+   # Database Configuration (PostgreSQL)
+   DB_NAME=carpooling
+   DB_USER=postgres
+   DB_PASSWORD=twoje_haslo_postgres
+   DB_HOST=localhost
+   DB_PORT=5432
+   
+   # Ustaw USE_SQLITE=True tylko jeśli chcesz użyć SQLite (niezalecane)
+   USE_SQLITE=False
+   ```
+   
+   **Uwaga:** 
+   - Każdy członek zespołu powinien mieć własny plik `.env` z własnymi danymi dostępowymi do lokalnej bazy PostgreSQL.
+   - **Ważne:** Jeśli hasło PostgreSQL zawiera znaki specjalne, może wystąpić błąd `UnicodeDecodeError`.
+   
+   **Rozwiązanie problemu z kodowaniem hasła:**
+   
+   Jeśli widzisz błąd `UnicodeDecodeError: 'utf-8' codec can't decode byte...`:
+   
+   1. Zmień hasło użytkownika PostgreSQL na proste (tylko litery i cyfry):
+   ```sql
+   -- Zaloguj się do PostgreSQL jako superuser
+   psql -U postgres
+   
+   -- Zmień hasło użytkownika
+   ALTER USER carpool WITH PASSWORD 'prostehaslo123';
+   -- lub dla użytkownika postgres:
+   ALTER USER postgres WITH PASSWORD 'prostehaslo123';
+   ```
+   
+   2. Zaktualizuj `DB_PASSWORD` w pliku `.env`:
+   ```env
+   DB_PASSWORD=prostehaslo123
+   ```
+   
+   3. Upewnij się, że plik `.env` jest zapisany w kodowaniu UTF-8 (bez BOM).
+   
+   4. Sprawdź połączenie uruchamiając:
+   ```bash
+   python check_db_connection.py
+   ```
 
 5. Upewnij się, że PostgreSQL jest uruchomiony i baza danych istnieje.
 
-6. Wykonaj migracje:
+6. **Sprawdź połączenie z bazą danych** (opcjonalnie, ale zalecane):
+   ```bash
+   python check_db_connection.py
+   ```
+   Ten skrypt sprawdzi czy:
+   - PostgreSQL jest uruchomiony
+   - Baza danych istnieje
+   - Połączenie działa poprawnie
+   
+   Jeśli wystąpi błąd, zobacz sekcję "Rozwiązanie problemu z kodowaniem hasła" powyżej.
+
+7. Wykonaj migracje:
 ```bash
 python manage.py migrate
 ```
 
-7. Utwórz superusera (opcjonalnie):
+8. Utwórz superusera (opcjonalnie):
 ```bash
 python manage.py createsuperuser
 ```
 
-8. Uruchom serwer deweloperski:
+9. Uruchom serwer deweloperski:
 ```bash
 python manage.py runserver
 ```
@@ -103,12 +168,14 @@ npm start
 
 Frontend będzie dostępny pod adresem: `http://localhost:3000`
 
-## 🔌 API Endpoints
+## API Endpoints
 
 ### Autentykacja
-- `POST /api/user/register/` - Rejestracja użytkownika
+- `POST /api/user/register/` - Rejestracja użytkownika (z preferred_role)
 - `POST /api/token/` - Pobranie tokenu JWT (logowanie)
 - `POST /api/token/refresh/` - Odświeżenie tokenu JWT
+- `GET /api/user/profile/` - Pobranie profilu użytkownika
+- `PATCH /api/user/profile/` - Aktualizacja profilu użytkownika (preferred_role)
 
 ### Przejazdy
 - `GET /api/trips/` - Lista przejazdów
@@ -148,30 +215,30 @@ git push origin feature/michal-work
 
 **WAŻNE:** Nie pushuj niczego na branch `main` - pracuj tylko na swoim branchu!
 
-## 📚 Dokumentacja
+## Dokumentacja
 
 - `backend/ARCHITECTURE.md` - Dokumentacja architektury aplikacji
 - `backend/STRUCTURE.md` - Struktura projektu Django
 - `DEFINITION_OF_DONE.md` - Definition of Done dla projektu
 
-## 🔗 Linki
+## Linki
 
 - **Repozytorium Git**: https://devtools.wi.pb.edu.pl/bitbucket/projects/CAR/repos/carpooling
 - **Backend API**: http://localhost:8000 (po uruchomieniu)
 - **Frontend**: http://localhost:3000 (po uruchomieniu)
 
-## ⚠️ Uwagi
+## Uwagi
 
 - Plik `.env` jest w `.gitignore` i nie powinien być commitowany
 - Wszystkie zmiany powinny być robione na własnym branchu (np. `feature/PT2025NFCP-XX-opis`)
 - Przed rozpoczęciem pracy zawsze pobierz najnowsze zmiany z najnowszego brancha
 - Virtual environment (`venv/`) nie jest w repozytorium - każdy tworzy własny
 
-## 👥 Zespół
+## Zespół
 
 Projekt zespołowy - Car Pooling Team
 
-## 📝 Licencja
+## Licencja
 
 Projekt edukacyjny
 

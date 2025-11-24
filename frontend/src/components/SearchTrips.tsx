@@ -24,7 +24,7 @@ import { Trip, tripService } from '../services/api';
 const validationSchema = yup.object({
   start_location: yup.string().required('Punkt początkowy jest wymagany'),
   end_location: yup.string().required('Punkt docelowy jest wymagany'),
-  date: yup.string().required('Data jest wymagana'),
+  date: yup.string().required('Data jest wymagana'), // Data jest wymagana
 });
 
 interface SearchFormData {
@@ -51,11 +51,18 @@ export const SearchTrips: React.FC = () => {
       setLoading(true);
       setSearched(true);
       try {
-        const params = new URLSearchParams({
-          start_location: values.start_location.trim(),
-          end_location: values.end_location.trim(),
-          date: values.date,
-        });
+        // Budujemy parametry tylko dla wypełnionych pól
+        const params = new URLSearchParams();
+        if (values.start_location && values.start_location.trim()) {
+          params.append('start_location', values.start_location.trim());
+        }
+        if (values.end_location && values.end_location.trim()) {
+          params.append('end_location', values.end_location.trim());
+        }
+        if (values.date && values.date.trim()) {
+          params.append('date', values.date.trim());
+        }
+        
         console.log('Searching with params:', {
           start: values.start_location.trim(),
           end: values.end_location.trim(),
@@ -99,8 +106,8 @@ export const SearchTrips: React.FC = () => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Wyszukaj przejazd
           </Typography>
-          <Button color="inherit" onClick={() => navigate('/dashboard')}>
-            Dashboard
+          <Button color="inherit" onClick={() => navigate('/passenger')}>
+            Panel Pasażera
           </Button>
         </Toolbar>
       </AppBar>
@@ -166,6 +173,9 @@ export const SearchTrips: React.FC = () => {
                     InputLabelProps={{ shrink: true }}
                     InputProps={{
                       startAdornment: <CalendarToday sx={{ mr: 1, color: 'action.active' }} />,
+                    }}
+                    inputProps={{
+                      min: new Date().toISOString().split('T')[0] // Minimalna data to dzisiaj
                     }}
                   />
                 </Box>

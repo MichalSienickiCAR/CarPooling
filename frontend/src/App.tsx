@@ -4,6 +4,8 @@ import { ThemeProvider, createTheme } from '@mui/material';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
 import { Dashboard } from './components/Dashboard';
+import { DriverDashboard } from './components/DriverDashboard';
+import { PassengerDashboard } from './components/PassengerDashboard';
 import { SearchTrips } from './components/SearchTrips';
 import { AddTrip } from './components/AddTrip';
 import { MyTrips } from './components/MyTrips';
@@ -84,6 +86,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/driver" element={<DriverDashboard />} />
+            <Route path="/passenger" element={<PassengerDashboard />} />
             <Route path="/search" element={<SearchTrips />} />
             <Route path="/trips/add" element={<AddTrip />} />
             <Route path="/trips/mine" element={<MyTrips />} />

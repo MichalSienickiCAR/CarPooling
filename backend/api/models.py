@@ -1,6 +1,48 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+
+class UserProfile(models.Model):
+    """Profil użytkownika z preferowaną rolą"""
+    ROLE_CHOICES = [
+        ('driver', 'Kierowca'),
+        ('passenger', 'Pasażer'),
+        ('both', 'Oba'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    preferred_role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='both',
+        verbose_name='Preferowana rola'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Profil użytkownika'
+        verbose_name_plural = 'Profile użytkowników'
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_preferred_role_display()}"
+
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Automatycznie tworzy profil przy tworzeniu użytkownika"""
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
+
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    """Zapisuje profil przy aktualizacji użytkownika"""
+    if hasattr(instance, 'profile'):
+        instance.profile.save()
 
 
 class Trip(models.Model):

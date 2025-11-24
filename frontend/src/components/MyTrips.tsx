@@ -202,8 +202,8 @@ export const MyTrips: React.FC = () => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Moje przejazdy
           </Typography>
-          <Button color="inherit" onClick={() => navigate('/dashboard')}>
-            Dashboard
+          <Button color="inherit" onClick={() => navigate('/driver')}>
+            Panel Kierowcy
           </Button>
         </Toolbar>
       </AppBar>

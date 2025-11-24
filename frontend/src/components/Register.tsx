@@ -10,6 +10,11 @@ import {
   Link,
   Paper,
   Avatar,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from '@mui/material';
 import { PersonAddOutlined } from '@mui/icons-material';
 import { authService } from '../services/api';
@@ -33,6 +38,10 @@ const validationSchema = yup.object({
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
     .required('Confirm password is required'),
+  preferredRole: yup
+    .string()
+    .oneOf(['driver', 'passenger', 'both'], 'Invalid role')
+    .required('Role selection is required'),
 });
 
 export const Register: React.FC = () => {
@@ -45,11 +54,12 @@ export const Register: React.FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
+      preferredRole: 'both' as 'driver' | 'passenger' | 'both',
     },
     validationSchema: validationSchema,
     onSubmit: async (values) => {
       try {
-        await authService.register(values.username, values.email, values.password);
+        await authService.register(values.username, values.email, values.password, values.preferredRole);
         enqueueSnackbar('Rejestracja zakończona pomyślnie! Możesz się teraz zalogować.', { 
           variant: 'success',
         });
@@ -159,6 +169,19 @@ export const Register: React.FC = () => {
               helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
               autoComplete="new-password"
             />
+            <FormControl component="fieldset" sx={{ mt: 2, width: '100%' }}>
+              <FormLabel component="legend">Wybierz swoją rolę</FormLabel>
+              <RadioGroup
+                row
+                name="preferredRole"
+                value={formik.values.preferredRole}
+                onChange={formik.handleChange}
+              >
+                <FormControlLabel value="driver" control={<Radio />} label="Kierowca" />
+                <FormControlLabel value="passenger" control={<Radio />} label="Pasażer" />
+                <FormControlLabel value="both" control={<Radio />} label="Oba" />
+              </RadioGroup>
+            </FormControl>
             <Button
               type="submit"
               fullWidth

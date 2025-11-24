@@ -69,7 +69,7 @@ export const AddTrip: React.FC = () => {
         enqueueSnackbar('Przejazd został dodany pomyślnie!', {
           variant: 'success',
         });
-        navigate('/dashboard');
+        navigate('/driver');
       } catch (error: any) {
         const errorMessage =
           error.response?.data?.detail ||
@@ -109,8 +109,8 @@ export const AddTrip: React.FC = () => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Dodaj przejazd
           </Typography>
-          <Button color="inherit" onClick={() => navigate('/dashboard')}>
-            Dashboard
+          <Button color="inherit" onClick={() => navigate('/driver')}>
+            Panel Kierowcy
           </Button>
         </Toolbar>
       </AppBar>
@@ -283,7 +283,7 @@ export const AddTrip: React.FC = () => {
                   type="button"
                   variant="outlined"
                   fullWidth
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/driver')}
                 >
                   Anuluj
                 </Button>

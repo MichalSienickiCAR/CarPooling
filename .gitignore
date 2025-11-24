@@ -36,6 +36,7 @@ ENV/
 
 # Django stuff:
 *.log
+logs/
 local_settings.py
 db.sqlite3
 media/
@@ -61,3 +62,8 @@ Thumbs.db
 
 # pyenv
 .python-version
+
+# Temporary analysis files (nie potrzebne w repo)
+BACKLOG_ANALYSIS.md
+ADDITIONAL_TASKS_PROPOSALS.md
+TASKS_COMPARISON.md

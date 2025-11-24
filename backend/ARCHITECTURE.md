@@ -57,6 +57,11 @@ Aplikacja Django odpowiedzialna za logikę biznesową:
 
 #### Modele (`models.py`)
 
+- **UserProfile**: Profil użytkownika z preferowaną rolą
+  - `user`: Użytkownik (OneToOneField do User)
+  - `preferred_role`: Preferowana rola (driver/passenger/both)
+  - `created_at`, `updated_at`: Daty utworzenia i aktualizacji
+
 - **Trip**: Model przejazdu
   - `driver`: Kierowca (ForeignKey do User)
   - `start_location`: Punkt początkowy
@@ -74,23 +79,27 @@ Aplikacja Django odpowiedzialna za logikę biznesową:
 
 #### Serializery (`serializers.py`)
 
-- **UserSerializer**: Serializacja użytkownika (rejestracja)
+- **UserSerializer**: Serializacja użytkownika (rejestracja z preferred_role)
+- **UserProfileSerializer**: Serializacja profilu użytkownika
 - **TripSerializer**: Serializacja przejazdu
 - **BookingSerializer**: Serializacja rezerwacji
 
 #### Widoki (`views.py`)
 
-- **UserCreateView**: Rejestracja nowego użytkownika
+- **UserCreateView**: Rejestracja nowego użytkownika z preferred_role
+- **UserProfileView**: Pobieranie i aktualizacja profilu użytkownika
 - **TripViewSet**: ViewSet dla przejazdów (CRUD + akcje)
   - `my_trips`: Lista przejazdów kierowcy
   - `passengers`: Lista pasażerów przejazdu
   - `cancel`: Anulowanie przejazdu
-- **TripSearchView**: Wyszukiwanie przejazdów
+- **TripSearchView**: Wyszukiwanie przejazdów (wyklucza przejazdy użytkownika)
 
 #### Routing (`urls.py`)
 
 - `/api/trips/` - ViewSet przejazdów
 - `/api/trips/search/` - Wyszukiwanie przejazdów
+- `/api/trips/my_trips/` - Moje przejazdy (kierowca)
+- `/api/user/profile/` - Profil użytkownika (GET/PATCH)
 
 ## Technologie
 
@@ -191,17 +200,18 @@ Dla serwerów async (Daphne, Uvicorn):
 
 ## Status
 
-✅ Projekt Django utworzony
-✅ Aplikacja API skonfigurowana
-✅ Modele danych zdefiniowane
-✅ REST API endpoints działające
-✅ Autentykacja JWT zaimplementowana
-✅ CORS skonfigurowany
-✅ Zmienne środowiskowe skonfigurowane
+- Projekt Django utworzony
+- Aplikacja API skonfigurowana
+- Modele danych zdefiniowane (UserProfile, Trip, Booking)
+- REST API endpoints działające
+- Autentykacja JWT zaimplementowana
+- CORS skonfigurowany
+- Zmienne środowiskowe skonfigurowane
+- PostgreSQL skonfigurowany jako domyślna baza danych
 
 ---
 
-**Data utworzenia**: 2025-01-XX
-**Wersja Django**: 5.2.7
+**Data utworzenia**: 2025-11-24
+**Wersja Django**: 5.2.8
 **Task Jira**: PT2025NFCP-39
 

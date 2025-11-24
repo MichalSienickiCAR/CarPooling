@@ -1,25 +1,39 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Trip, Booking
+from .models import Trip, Booking, UserProfile
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['preferred_role']
+        read_only_fields = ['created_at', 'updated_at']
 
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    preferred_role = serializers.CharField(write_only=True, required=False)
+    profile = UserProfileSerializer(read_only=True)
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password']
+        fields = ['id', 'username', 'email', 'password', 'preferred_role', 'profile']
         extra_kwargs = {
             'password': {'write_only': True},
             'email': {'required': True}
         }
 
     def create(self, validated_data):
+        preferred_role = validated_data.pop('preferred_role', 'both')
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password']
         )
+        # Ustawiamy preferowaną rolę w profilu
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        profile.preferred_role = preferred_role
+        profile.save()
         return user
 
 
@@ -54,8 +68,7 @@ class TripSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        # Automatycznie ustawiamy kierowcę na zalogowanego użytkownika
-        validated_data['driver'] = self.context['request'].user
+        # Kierowca jest ustawiany w perform_create w views.py
         # Upewniamy się, że intermediate_stops jest listą
         if 'intermediate_stops' not in validated_data or validated_data['intermediate_stops'] is None:
             validated_data['intermediate_stops'] = []

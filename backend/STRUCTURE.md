@@ -6,34 +6,34 @@
 backend/
 │
 ├── backend/                          # Główny projekt Django
-│   ├── __init__.py                   # Inicjalizacja pakietu
-│   ├── settings.py                    # ⚙️ Konfiguracja projektu
-│   ├── urls.py                       # 🔗 Główny router URL
-│   ├── wsgi.py                       # 🌐 WSGI config (deployment)
-│   └── asgi.py                       # ⚡ ASGI config (async)
+│   ├── __init__.py
+│   ├── settings.py                    # Konfiguracja projektu
+│   ├── urls.py                       # Główny router URL
+│   ├── wsgi.py                       # WSGI config (deployment)
+│   └── asgi.py                       # ASGI config (async)
 │
 ├── api/                              # Aplikacja Django - API
-│   ├── __init__.py                   # Inicjalizacja aplikacji
-│   ├── admin.py                      # 👤 Konfiguracja Django Admin
-│   ├── apps.py                       # 📱 Konfiguracja aplikacji
-│   ├── models.py                     # 🗄️ Modele danych
-│   ├── serializers.py                # 📦 Serializery DRF
-│   ├── views.py                      # 👁️ Widoki API
-│   ├── urls.py                       # 🔗 Routing API
-│   ├── tests.py                      # 🧪 Testy jednostkowe
-│   └── migrations/                   # 📊 Migracje bazy danych
+│   ├── __init__.py
+│   ├── admin.py                      # Konfiguracja Django Admin
+│   ├── apps.py                       # Konfiguracja aplikacji
+│   ├── models.py                     # Modele danych
+│   ├── serializers.py                # Serializery DRF
+│   ├── views.py                      # Widoki API
+│   ├── urls.py                       # Routing API
+│   ├── tests.py                      # Testy jednostkowe
+│   └── migrations/                   # Migracje bazy danych
 │       └── __init__.py
 │
-├── manage.py                         # 🛠️ Django management script
-├── requirements.txt                  # 📋 Zależności Python
-├── .env                              # 🔐 Zmienne środowiskowe (gitignored)
-├── ARCHITECTURE.md                   # 📖 Dokumentacja architektury
-└── STRUCTURE.md                      # 📁 Ten plik
+├── manage.py                         # Django management script
+├── requirements.txt                  # Zależności Python
+├── .env                              # Zmienne środowiskowe (gitignored)
+├── ARCHITECTURE.md                   # Dokumentacja architektury
+└── STRUCTURE.md                      # Ten plik
 ```
 
 ## Opis Komponentów
 
-### 📁 backend/ (Główny Projekt)
+### backend/ (Główny Projekt)
 
 #### settings.py
 - Konfiguracja całego projektu Django
@@ -57,29 +57,34 @@ backend/
 - WSGI dla tradycyjnych serwerów
 - ASGI dla serwerów async
 
-### 📁 api/ (Aplikacja)
+### api/ (Aplikacja)
 
 #### models.py
 Definiuje modele danych:
+- **UserProfile**: Profil użytkownika z preferowaną rolą (driver/passenger/both)
 - **Trip**: Przejazd (kierowca, trasa, data, miejsca, cena)
 - **Booking**: Rezerwacja (pasażer, przejazd, miejsca, status)
 
 #### serializers.py
 Serializery Django REST Framework:
-- **UserSerializer**: Rejestracja użytkownika
+- **UserSerializer**: Rejestracja użytkownika z preferred_role
+- **UserProfileSerializer**: Serializacja profilu użytkownika
 - **TripSerializer**: Serializacja przejazdu
 - **BookingSerializer**: Serializacja rezerwacji
 
 #### views.py
 Widoki API:
-- **UserCreateView**: Rejestracja
-- **TripViewSet**: CRUD + akcje dla przejazdów
-- **TripSearchView**: Wyszukiwanie przejazdów
+- **UserCreateView**: Rejestracja z preferred_role
+- **UserProfileView**: Pobieranie i aktualizacja profilu (GET/PATCH)
+- **TripViewSet**: CRUD + akcje dla przejazdów (my_trips, passengers, cancel)
+- **TripSearchView**: Wyszukiwanie przejazdów (wyklucza przejazdy użytkownika)
 
 #### urls.py
 Routing API:
 - `/api/trips/` - ViewSet przejazdów
-- `/api/trips/search/` - Wyszukiwanie
+- `/api/trips/search/` - Wyszukiwanie przejazdów
+- `/api/trips/my_trips/` - Moje przejazdy (kierowca)
+- `/api/user/profile/` - Profil użytkownika
 
 #### admin.py
 Konfiguracja Django Admin:
@@ -91,14 +96,14 @@ Folder zawierający migracje bazy danych:
 - `__init__.py` - Inicjalizacja
 - Migracje są generowane przez Django
 
-### 🛠️ manage.py
+### manage.py
 Django management script - główne narzędzie do zarządzania projektem:
 ```bash
-python manage.py runserver      # Uruchomienie serwera
-python manage.py migrate         # Zastosowanie migracji
-python manage.py makemigrations  # Utworzenie migracji
-python manage.py createsuperuser # Utworzenie admina
-python manage.py test            # Uruchomienie testów
+python manage.py runserver
+python manage.py migrate
+python manage.py makemigrations
+python manage.py createsuperuser
+python manage.py test
 ```
 
 ## Przepływ Request-Response
@@ -156,24 +161,24 @@ api/models.py
 
 | Komponent | Status | Opis |
 |-----------|--------|------|
-| Django Project | ✅ | Utworzony i skonfigurowany |
-| API App | ✅ | Utworzona i zarejestrowana |
-| Models | ✅ | Trip i Booking zdefiniowane |
-| Serializers | ✅ | Wszystkie serializery gotowe |
-| Views | ✅ | ViewSets i widoki działające |
-| URLs | ✅ | Routing skonfigurowany |
-| Admin | ✅ | Modele zarejestrowane |
-| Migrations | ⚠️ | Folder istnieje, migracje do utworzenia |
-| Tests | 📝 | Plik istnieje, testy do napisania |
-| Documentation | ✅ | ARCHITECTURE.md i STRUCTURE.md |
+| Django Project | OK | Utworzony i skonfigurowany |
+| API App | OK | Utworzona i zarejestrowana |
+| Models | OK | UserProfile, Trip i Booking zdefiniowane |
+| Serializers | OK | Wszystkie serializery gotowe |
+| Views | OK | ViewSets i widoki działające |
+| URLs | OK | Routing skonfigurowany |
+| Admin | OK | Modele zarejestrowane |
+| Migrations | OK | Migracje utworzone i zastosowane |
+| Tests | TODO | Plik istnieje, testy do napisania |
+| Documentation | OK | ARCHITECTURE.md i STRUCTURE.md |
 
-## Następne Kroki
+## Status Implementacji
 
-1. ✅ Architektura przygotowana
-2. ⏭️ Utworzenie migracji: `python manage.py makemigrations`
-3. ⏭️ Zastosowanie migracji: `python manage.py migrate`
-4. ⏭️ Utworzenie superusera: `python manage.py createsuperuser`
-5. ⏭️ Uruchomienie serwera: `python manage.py runserver`
+1. Architektura przygotowana
+2. Migracje utworzone i zastosowane na PostgreSQL
+3. System ról użytkowników (UserProfile) zaimplementowany
+4. Wszystkie podstawowe endpointy działające
+5. PostgreSQL skonfigurowany jako domyślna baza danych
 
 ---
 

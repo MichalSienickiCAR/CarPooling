@@ -26,6 +26,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export interface UserProfile {
+  preferred_role: 'driver' | 'passenger' | 'both';
+  username: string;
+  email: string;
+}
+
 export const authService = {
   async login(username: string, password: string) {
     const response = await api.post('/token/', { username, password });
@@ -36,14 +42,20 @@ export const authService = {
     return response.data;
   },
 
-  async register(username: string, email: string, password: string) {
-    const response = await api.post('/user/register/', { username, email, password });
+  async register(username: string, email: string, password: string, preferredRole: 'driver' | 'passenger' | 'both' = 'both') {
+    const response = await api.post('/user/register/', { 
+      username, 
+      email, 
+      password,
+      preferred_role: preferredRole
+    });
     return response.data;
   },
 
   logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
   },
 
   async refreshToken() {
@@ -58,6 +70,16 @@ export const authService = {
       return response.data;
     }
     return null;
+  },
+
+  async getUserProfile(): Promise<UserProfile> {
+    const response = await api.get('/user/profile/');
+    return response.data;
+  },
+
+  async updateUserProfile(preferredRole: 'driver' | 'passenger' | 'both'): Promise<UserProfile> {
+    const response = await api.patch('/user/profile/', { preferred_role: preferredRole });
+    return response.data;
   },
 };
 
