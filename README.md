@@ -1,11 +1,24 @@
 # Carpooling Project
 
-Projekt zespołowy - aplikacja do wspólnych przejazdów.
+Projekt zespołowy - aplikacja do wspólnych przejazdów (carpooling).
 
-## Struktura projektu
+## 📋 Opis projektu
 
-- `backend/` - Django REST API
-- `frontend/` - React TypeScript aplikacja
+Aplikacja webowa umożliwiająca użytkownikom organizowanie wspólnych przejazdów. Kierowcy mogą dodawać przejazdy, a pasażerowie mogą wyszukiwać i rezerwować miejsca w przejazdach.
+
+## 🏗️ Struktura projektu
+
+```
+carpooling/
+├── backend/          # Django REST API
+├── frontend/         # React TypeScript aplikacja
+├── venv/            # Virtual environment (nie w repo)
+├── README.md        # Ten plik
+└── .gitignore       # Pliki ignorowane przez Git
+```
+
+- `backend/` - Django REST API z PostgreSQL
+- `frontend/` - React TypeScript aplikacja z Material-UI
 
 ## Wymagania
 
@@ -90,11 +103,23 @@ npm start
 
 Frontend będzie dostępny pod adresem: `http://localhost:3000`
 
-## API Endpoints
+## 🔌 API Endpoints
 
+### Autentykacja
 - `POST /api/user/register/` - Rejestracja użytkownika
 - `POST /api/token/` - Pobranie tokenu JWT (logowanie)
 - `POST /api/token/refresh/` - Odświeżenie tokenu JWT
+
+### Przejazdy
+- `GET /api/trips/` - Lista przejazdów
+- `POST /api/trips/` - Utworzenie przejazdu (wymaga autentykacji)
+- `GET /api/trips/{id}/` - Szczegóły przejazdu
+- `PUT/PATCH /api/trips/{id}/` - Aktualizacja przejazdu
+- `DELETE /api/trips/{id}/` - Usunięcie przejazdu
+- `GET /api/trips/search/` - Wyszukiwanie przejazdów
+- `GET /api/trips/my_trips/` - Moje przejazdy (jako kierowca)
+
+### Admin
 - `GET /admin/` - Panel administracyjny Django
 
 ## Praca z Git
@@ -123,9 +148,30 @@ git push origin feature/michal-work
 
 **WAŻNE:** Nie pushuj niczego na branch `main` - pracuj tylko na swoim branchu!
 
-## Uwagi
+## 📚 Dokumentacja
+
+- `backend/ARCHITECTURE.md` - Dokumentacja architektury aplikacji
+- `backend/STRUCTURE.md` - Struktura projektu Django
+- `DEFINITION_OF_DONE.md` - Definition of Done dla projektu
+
+## 🔗 Linki
+
+- **Repozytorium Git**: https://devtools.wi.pb.edu.pl/bitbucket/projects/CAR/repos/carpooling
+- **Backend API**: http://localhost:8000 (po uruchomieniu)
+- **Frontend**: http://localhost:3000 (po uruchomieniu)
+
+## ⚠️ Uwagi
 
 - Plik `.env` jest w `.gitignore` i nie powinien być commitowany
-- Wszystkie zmiany powinny być robione na Twoim branchu `feature/michal-work`
-- Przed rozpoczęciem pracy zawsze pobierz najnowsze zmiany z `main`
+- Wszystkie zmiany powinny być robione na własnym branchu (np. `feature/PT2025NFCP-XX-opis`)
+- Przed rozpoczęciem pracy zawsze pobierz najnowsze zmiany z najnowszego brancha
+- Virtual environment (`venv/`) nie jest w repozytorium - każdy tworzy własny
+
+## 👥 Zespół
+
+Projekt zespołowy - Car Pooling Team
+
+## 📝 Licencja
+
+Projekt edukacyjny
 
