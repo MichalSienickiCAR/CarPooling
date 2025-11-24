@@ -25,10 +25,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)m57m^t+^1sg_$%8n+prmaus!7vz67+o996*y+g@6676ls)eg!'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-)m57m^t+^1sg_$%8n+prmaus!7vz67+o996*y+g@6676ls)eg!')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ["*"]
 
@@ -101,11 +101,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'carpooling',
-        'USER': 'carpool',
-        'PASSWORD': 'ZJ<170yuJ~{>rOx3c_Mq@b$g',
-        'HOST': 'localhost',  # lub adres serwera PostgreSQL
-        'PORT': '5432',       # domyślny port PostgreSQL
+        'NAME': os.getenv('DB_NAME', 'carpooling'),
+        'USER': os.getenv('DB_USER', 'carpool'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'ZJ<170yuJ~{>rOx3c_Mq@b$g'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
