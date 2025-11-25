@@ -38,10 +38,30 @@ export const Login: React.FC = () => {
     onSubmit: async (values) => {
       try {
         await authService.login(values.username, values.password);
+        
+        // Pobierz profil użytkownika, aby określić preferowaną rolę
+        try {
+          const profile = await authService.getUserProfile();
+          localStorage.setItem('userRole', profile.preferred_role);
+          
+          // Przekieruj na odpowiedni dashboard
+          if (profile.preferred_role === 'driver') {
+            navigate('/driver');
+          } else if (profile.preferred_role === 'passenger') {
+            navigate('/passenger');
+          } else {
+            // Dla 'both' - przekieruj na stary dashboard lub pozwól wybrać
+            navigate('/dashboard');
+          }
+        } catch (profileError) {
+          // Jeśli nie udało się pobrać profilu, użyj domyślnego dashboardu
+          console.warn('Could not fetch user profile:', profileError);
+          navigate('/dashboard');
+        }
+        
         enqueueSnackbar('Logowanie zakończone pomyślnie!', { 
           variant: 'success',
         });
-        navigate('/dashboard');
       } catch (error) {
         enqueueSnackbar('Nieprawidłowa nazwa użytkownika lub hasło.', { 
           variant: 'error',

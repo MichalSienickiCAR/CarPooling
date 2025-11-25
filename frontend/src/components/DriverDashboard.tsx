@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Box,
   Container,
@@ -9,30 +9,12 @@ import {
   Toolbar,
   Stack,
 } from '@mui/material';
-import { DirectionsCar, Search, Add, ListAlt, Logout } from '@mui/icons-material';
+import { DirectionsCar, Add, ListAlt, Logout } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 
-export const Dashboard: React.FC = () => {
+export const DriverDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState<'driver' | 'passenger' | 'both' | null>(null);
-
-  useEffect(() => {
-    // Pobierz rolę użytkownika
-    const fetchUserRole = async () => {
-      try {
-        const profile = await authService.getUserProfile();
-        setUserRole(profile.preferred_role);
-        localStorage.setItem('userRole', profile.preferred_role);
-      } catch (error) {
-        console.error('Could not fetch user profile:', error);
-        // Jeśli nie udało się pobrać, sprawdź localStorage
-        const storedRole = localStorage.getItem('userRole') as 'driver' | 'passenger' | 'both' | null;
-        setUserRole(storedRole || 'both');
-      }
-    };
-    fetchUserRole();
-  }, []);
 
   const handleLogout = () => {
     authService.logout();
@@ -45,7 +27,7 @@ export const Dashboard: React.FC = () => {
         <Toolbar>
           <DirectionsCar sx={{ mr: 2 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Carpooling - Panel główny
+            Carpooling - Panel Kierowcy
           </Typography>
           <Button color="inherit" startIcon={<Logout />} onClick={handleLogout}>
             Wyloguj
@@ -62,10 +44,10 @@ export const Dashboard: React.FC = () => {
           }}
         >
           <Typography variant="h4" component="h1" gutterBottom>
-            Panel główny
+            Panel Kierowcy
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-            Wybierz, czy chcesz działać jako kierowca czy pasażer
+            Zarządzaj swoimi przejazdami - dodawaj nowe oferty, edytuj istniejące przejazdy i sprawdzaj listę pasażerów
           </Typography>
           <Stack 
             direction={{ xs: 'column', sm: 'row' }} 
@@ -76,8 +58,8 @@ export const Dashboard: React.FC = () => {
             <Button
               variant="contained"
               size="large"
-              startIcon={<DirectionsCar />}
-              onClick={() => navigate('/driver')}
+              startIcon={<Add />}
+              onClick={() => navigate('/trips/add')}
               sx={{
                 background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
                 boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
@@ -87,23 +69,22 @@ export const Dashboard: React.FC = () => {
                 minWidth: 200,
               }}
             >
-              Panel Kierowcy
+              Dodaj nowy przejazd
             </Button>
             <Button
-              variant="contained"
+              variant="outlined"
               size="large"
-              startIcon={<Search />}
-              onClick={() => navigate('/passenger')}
+              startIcon={<ListAlt />}
+              onClick={() => navigate('/trips/mine')}
               sx={{
-                background: 'linear-gradient(45deg, #f50057 30%, #ff4081 90%)',
-                boxShadow: '0 3px 5px 2px rgba(245, 0, 87, .3)',
+                borderWidth: 2,
                 '&:hover': {
-                  background: 'linear-gradient(45deg, #c51162 30%, #f50057 90%)',
+                  borderWidth: 2,
                 },
                 minWidth: 200,
               }}
             >
-              Panel Pasażera
+              Moje przejazdy
             </Button>
           </Stack>
         </Paper>

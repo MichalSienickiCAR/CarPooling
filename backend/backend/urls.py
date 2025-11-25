@@ -28,7 +28,6 @@ urlpatterns = [
     path("api/user/register/", UserCreateView.as_view(), name="register"),
     path("api/token/", TokenObtainPairView.as_view(permission_classes=[AllowAny]), name="get_token"),
     path("api/token/refresh/", TokenRefreshView.as_view(permission_classes=[AllowAny]), name="refresh_token"),
-    path("api/trips/", TripListView.as_view(), name="trip-list"),
-    path("api/trips/create/", TripCreateView.as_view(), name="trip-create"),
-    path("api-auth/", include("rest_framework.urls") ),
+    path("api-auth/", include("rest_framework.urls")),
+    path("api/", include("api.urls")),
 ]

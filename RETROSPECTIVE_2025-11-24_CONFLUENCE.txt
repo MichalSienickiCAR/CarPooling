@@ -1,0 +1,78 @@
+Retrospekcja - 2025-11-24
+
+Co zrobiliśmy dobrze?
+
+Setup i Architektura
+- Utworzenie profesjonalnego repozytorium Git z dokumentacją i README
+- Przygotowanie pełnej architektury Django REST Framework z modelami, serializerami, views i routingiem
+- Konfiguracja PostgreSQL jako domyślnej bazy danych z dokumentacją setupu dla całego zespołu
+- Frontend React z TypeScript i Material-UI z walidacją formularzy
+
+System Autentykacji
+- Pełny system autentykacji z JWT (rejestracja, logowanie, refresh tokenów)
+- System ról użytkowników (kierowca/pasażer/oba) z automatycznym tworzeniem profilu
+- Przekierowanie na odpowiedni dashboard po logowaniu w zależności od roli
+
+Funkcjonalności Biznesowe
+- Dodawanie przejazdów przez kierowcę z pełnym formularzem (punkty, data, godzina, miejsca, cena)
+- Wyszukiwanie przejazdów przez pasażera z elastycznym filtrowaniem po lokalizacji i dacie
+- Lista pasujących przejazdów z kluczowymi informacjami
+- Widok "Moje Przejazdy" dla kierowcy z możliwością edycji i anulowania
+
+UX i Frontend
+- Rozdzielenie widoków kierowcy i pasażera na osobne panele
+- Nowoczesny, responsywny UI z Material-UI
+- Intuicyjna nawigacja i notyfikacje
+
+Dokumentacja i Procesy
+- Kompleksowa dokumentacja techniczna (README, ARCHITECTURE, STRUCTURE, DoD)
+- Diagramy ERD, User Flow, Workflow zespołu, Diagram Wdrożenia
+- System logowania w backendzie (pliki + konsola)
+- Mockupy UI jako fundament dla implementacji
+
+Komunikacja i Organizacja
+- Jasne rozdzielenie i przypisanie user stories - każdy wie, co ma robić
+- Dobrze zdefiniowane punkty integracji między frontendem a backendem
+- Responsywna komunikacja w zespole - szybkie ustalenia podczas daily
+- Szybkie reagowanie na błędy i ich naprawa (routing, filtrowanie, wyświetlanie)
+
+Migracja na PostgreSQL
+- Kompletna migracja z SQLite na PostgreSQL
+- Rozwiązanie problemów z kodowaniem hasła
+- Przygotowanie dokumentacji i skryptów pomocniczych dla zespołu
+
+Co zrobiliśmy źle / Co powinniśmy zrobić lepiej?
+
+Planowanie
+- Brak przypisanego właściciela dla niektórych tasków przed startem sprintu - opóźniło plan pracy. Rozwiązane: Task został ukończony.
+
+Definition of Done
+- DoD został uproszczony na początku projektu, ale warto go rozszerzyć w miarę rozwoju (szczególnie: walidacja pól, obsługa błędów, testy)
+
+Komunikacja w Git
+- Brak spójności w komentarzach do commitów i PR - potrzebujemy wzoru commit message i wymogu linku do issue w PR
+
+Testowanie
+- Warto dodać manualne testy przed zamknięciem taska jako DONE
+
+Dokumentacja zmian
+- Warto dokumentować większe zmiany (np. rozdzielenie widoków, system ról) w Confluence lub README
+
+Co możemy poprawić?
+
+Procesy
+- Doprecyzować Definition of Done dla przyszłych tasków (walidacje + przypadki testowe)
+- Ustawić wzór commit message i wymóg linku do issue w PR dla całego zespołu
+- Dodać testy manualne do checklist przed PR
+
+Funkcjonalności
+- Dodać system ocen kierowcy (osobny task)
+
+Dokumentacja
+- Dokumentować większe zmiany w Confluence lub README
+- Rozważyć dodanie testów automatycznych w przyszłości
+
+---
+
+Data retrospekcji: 2025-11-24
+Zespół: Car Pooling Team

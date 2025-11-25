@@ -11,6 +11,9 @@ import {
   Avatar,
   IconButton,
   Chip,
+  AppBar,
+  Toolbar,
+  Stack,
 } from '@mui/material';
 import { Add, DirectionsCar } from '@mui/icons-material';
 import { tripService, TripFormData } from '../services/api';
@@ -26,12 +29,8 @@ const validationSchema = yup.object({
     .string()
     .required('Punkt docelowy jest wymagany')
     .min(3, 'Punkt docelowy musi mieć co najmniej 3 znaki'),
-  date: yup
-    .string()
-    .required('Data jest wymagana'),
-  time: yup
-    .string()
-    .required('Godzina jest wymagana'),
+  date: yup.string().required('Data jest wymagana'),
+  time: yup.string().required('Godzina jest wymagana'),
   available_seats: yup
     .number()
     .required('Liczba miejsc jest wymagana')
@@ -70,11 +69,12 @@ export const AddTrip: React.FC = () => {
         enqueueSnackbar('Przejazd został dodany pomyślnie!', {
           variant: 'success',
         });
-        navigate('/dashboard');
+        navigate('/driver');
       } catch (error: any) {
-        const errorMessage = error.response?.data?.detail || 
-                           error.response?.data?.message || 
-                           'Wystąpił błąd podczas dodawania przejazdu.';
+        const errorMessage =
+          error.response?.data?.detail ||
+          error.response?.data?.message ||
+          'Wystąpił błąd podczas dodawania przejazdu.';
         enqueueSnackbar(errorMessage, {
           variant: 'error',
         });
@@ -102,60 +102,67 @@ export const AddTrip: React.FC = () => {
   };
 
   return (
-    <Container component="main" maxWidth="md">
-      <Box
-        sx={{
-          marginTop: 4,
-          marginBottom: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper
-          elevation={6}
+    <>
+      <AppBar position="static">
+        <Toolbar>
+          <DirectionsCar sx={{ mr: 2 }} />
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Dodaj przejazd
+          </Typography>
+          <Button color="inherit" onClick={() => navigate('/driver')}>
+            Panel Kierowcy
+          </Button>
+        </Toolbar>
+      </AppBar>
+      <Container component="main" maxWidth="md">
+        <Box
           sx={{
-            padding: 4,
+            marginTop: 4,
+            marginBottom: 4,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            width: '100%',
-            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
-            boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)',
           }}
         >
-          <Avatar
+          <Paper
+            elevation={6}
             sx={{
-              m: 1,
-              bgcolor: 'primary.main',
-              width: 56,
-              height: 56,
+              padding: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              width: '100%',
+              background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
+              boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)',
             }}
           >
-            <DirectionsCar fontSize="large" />
-          </Avatar>
-          <Typography
-            component="h1"
-            variant="h5"
-            sx={{
-              mb: 3,
-              fontWeight: 600,
-              background: 'linear-gradient(45deg, #1976d2, #2196f3)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              color: 'transparent',
-            }}
-          >
-            Dodaj nowy przejazd
-          </Typography>
-          <Box
-            component="form"
-            onSubmit={formik.handleSubmit}
-            sx={{ mt: 1, width: '100%' }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' } }}>
+            <Avatar
+              sx={{
+                m: 1,
+                bgcolor: 'primary.main',
+                width: 56,
+                height: 56,
+              }}
+            >
+              <DirectionsCar fontSize="large" />
+            </Avatar>
+            <Typography
+              component="h1"
+              variant="h5"
+              sx={{
+                mb: 3,
+                fontWeight: 600,
+                background: 'linear-gradient(45deg, #1976d2, #2196f3)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                color: 'transparent',
+              }}
+            >
+              Dodaj nowy przejazd
+            </Typography>
+            <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1, width: '100%' }}>
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <TextField
                     fullWidth
                     id="start_location"
@@ -163,18 +170,10 @@ export const AddTrip: React.FC = () => {
                     label="Punkt początkowy"
                     value={formik.values.start_location}
                     onChange={formik.handleChange}
-                    error={
-                      formik.touched.start_location &&
-                      Boolean(formik.errors.start_location)
-                    }
-                    helperText={
-                      formik.touched.start_location &&
-                      formik.errors.start_location
-                    }
+                    error={formik.touched.start_location && Boolean(formik.errors.start_location)}
+                    helperText={formik.touched.start_location && formik.errors.start_location}
                     required
                   />
-                </Box>
-                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' } }}>
                   <TextField
                     fullWidth
                     id="end_location"
@@ -182,54 +181,43 @@ export const AddTrip: React.FC = () => {
                     label="Punkt docelowy"
                     value={formik.values.end_location}
                     onChange={formik.handleChange}
-                    error={
-                      formik.touched.end_location &&
-                      Boolean(formik.errors.end_location)
-                    }
-                    helperText={
-                      formik.touched.end_location && formik.errors.end_location
-                    }
+                    error={formik.touched.end_location && Boolean(formik.errors.end_location)}
+                    helperText={formik.touched.end_location && formik.errors.end_location}
                     required
                   />
+                </Stack>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Punkty pośrednie (opcjonalne)
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Dodaj punkt pośredni"
+                      value={currentStop}
+                      onChange={(e) => setCurrentStop(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                    />
+                    <IconButton color="primary" onClick={handleAddStop} disabled={!currentStop.trim()}>
+                      <Add />
+                    </IconButton>
+                  </Stack>
+                  {intermediateStops.length > 0 && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                      {intermediateStops.map((stop, index) => (
+                        <Chip
+                          key={index}
+                          label={stop}
+                          onDelete={() => handleRemoveStop(stop)}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  )}
                 </Box>
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Punkty pośrednie (opcjonalne)
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Dodaj punkt pośredni"
-                    value={currentStop}
-                    onChange={(e) => setCurrentStop(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                  />
-                  <IconButton
-                    color="primary"
-                    onClick={handleAddStop}
-                    disabled={!currentStop.trim()}
-                  >
-                    <Add />
-                  </IconButton>
-                </Box>
-                {intermediateStops.length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {intermediateStops.map((stop, index) => (
-                      <Chip
-                        key={index}
-                        label={stop}
-                        onDelete={() => handleRemoveStop(stop)}
-                        color="primary"
-                        variant="outlined"
-                      />
-                    ))}
-                  </Box>
-                )}
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' } }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <TextField
                     fullWidth
                     id="date"
@@ -245,8 +233,6 @@ export const AddTrip: React.FC = () => {
                     }}
                     required
                   />
-                </Box>
-                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' } }}>
                   <TextField
                     fullWidth
                     id="time"
@@ -262,10 +248,8 @@ export const AddTrip: React.FC = () => {
                     }}
                     required
                   />
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' } }}>
+                </Stack>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <TextField
                     fullWidth
                     id="available_seats"
@@ -274,19 +258,11 @@ export const AddTrip: React.FC = () => {
                     type="number"
                     value={formik.values.available_seats}
                     onChange={formik.handleChange}
-                    error={
-                      formik.touched.available_seats &&
-                      Boolean(formik.errors.available_seats)
-                    }
-                    helperText={
-                      formik.touched.available_seats &&
-                      formik.errors.available_seats
-                    }
+                    error={formik.touched.available_seats && Boolean(formik.errors.available_seats)}
+                    helperText={formik.touched.available_seats && formik.errors.available_seats}
                     inputProps={{ min: 1 }}
                     required
                   />
-                </Box>
-                <Box sx={{ flex: { xs: '1 1 100%', sm: '1 1 calc(50% - 8px)' } }}>
                   <TextField
                     fullWidth
                     id="price_per_seat"
@@ -295,52 +271,42 @@ export const AddTrip: React.FC = () => {
                     type="number"
                     value={formik.values.price_per_seat}
                     onChange={formik.handleChange}
-                    error={
-                      formik.touched.price_per_seat &&
-                      Boolean(formik.errors.price_per_seat)
-                    }
-                    helperText={
-                      formik.touched.price_per_seat &&
-                      formik.errors.price_per_seat
-                    }
+                    error={formik.touched.price_per_seat && Boolean(formik.errors.price_per_seat)}
+                    helperText={formik.touched.price_per_seat && formik.errors.price_per_seat}
                     inputProps={{ min: 0, step: 0.01 }}
                     required
                   />
-                </Box>
-              </Box>
+                </Stack>
+              </Stack>
+              <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate('/driver')}
+                >
+                  Anuluj
+                </Button>
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  sx={{
+                    background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
+                    boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)',
+                    },
+                  }}
+                >
+                  Dodaj przejazd
+                </Button>
+              </Stack>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              <Button
-                type="button"
-                variant="outlined"
-                fullWidth
-                onClick={() => navigate('/dashboard')}
-                sx={{ mt: 1 }}
-              >
-                Anuluj
-              </Button>
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                sx={{
-                  mt: 1,
-                  height: 46,
-                  background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-                  boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)',
-                  },
-                }}
-              >
-                Dodaj przejazd
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+          </Paper>
+        </Box>
+      </Container>
+    </>
   );
 };
-
 

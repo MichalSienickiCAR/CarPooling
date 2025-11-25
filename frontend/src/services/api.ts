@@ -26,6 +26,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export interface UserProfile {
+  preferred_role: 'driver' | 'passenger' | 'both';
+  username: string;
+  email: string;
+}
+
 export const authService = {
   async login(username: string, password: string) {
     const response = await api.post('/token/', { username, password });
@@ -36,14 +42,20 @@ export const authService = {
     return response.data;
   },
 
-  async register(username: string, email: string, password: string) {
-    const response = await api.post('/user/register/', { username, email, password });
+  async register(username: string, email: string, password: string, preferredRole: 'driver' | 'passenger' | 'both' = 'both') {
+    const response = await api.post('/user/register/', { 
+      username, 
+      email, 
+      password,
+      preferred_role: preferredRole
+    });
     return response.data;
   },
 
   logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
   },
 
   async refreshToken() {
@@ -58,6 +70,16 @@ export const authService = {
       return response.data;
     }
     return null;
+  },
+
+  async getUserProfile(): Promise<UserProfile> {
+    const response = await api.get('/user/profile/');
+    return response.data;
+  },
+
+  async updateUserProfile(preferredRole: 'driver' | 'passenger' | 'both'): Promise<UserProfile> {
+    const response = await api.patch('/user/profile/', { preferred_role: preferredRole });
+    return response.data;
   },
 };
 
@@ -74,6 +96,16 @@ export interface Trip {
   price_per_seat: number;
   created_at?: string;
   updated_at?: string;
+  bookings?: Booking[];
+}
+
+export interface Booking {
+  id: number;
+  passenger: number;
+  passenger_username: string;
+  seats: number;
+  status: string;
+  created_at: string;
 }
 
 export interface TripFormData {
@@ -88,12 +120,37 @@ export interface TripFormData {
 
 export const tripService = {
   async createTrip(tripData: TripFormData) {
-    const response = await api.post('/trips/create/', tripData);
+    const response = await api.post('/trips/', tripData);
     return response.data;
   },
 
   async getTrips() {
     const response = await api.get('/trips/');
     return response.data;
+  },
+
+  async getMyTrips() {
+    const response = await api.get('/trips/my_trips/');
+    return response.data;
+  },
+
+  async searchTrips(queryParams: string) {
+    const response = await api.get(`/trips/search/?${queryParams}`);
+    return response.data;
+  },
+
+  async updateTrip(tripId: number, tripData: TripFormData) {
+    const response = await api.patch(`/trips/${tripId}/`, tripData);
+    return response.data;
+  },
+
+  async cancelTrip(tripId: number) {
+    const response = await api.post(`/trips/${tripId}/cancel/`);
+    return response.data;
+  },
+
+  async getPassengers(tripId: number) {
+    const response = await api.get(`/trips/${tripId}/passengers/`);
+    return response.data as Booking[];
   },
 };
