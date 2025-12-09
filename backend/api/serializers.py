@@ -4,10 +4,43 @@ from .models import Trip, Booking, UserProfile
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', required=False)
+    last_name = serializers.CharField(source='user.last_name', required=False)
+    email = serializers.EmailField(source='user.email', required=False)
+    
     class Meta:
         model = UserProfile
-        fields = ['preferred_role']
+        fields = ['username', 'first_name', 'last_name', 'email', 'phone_number', 'avatar', 'preferred_role']
         read_only_fields = ['created_at', 'updated_at']
+
+    def update(self, instance, validated_data):
+        # Wyciągamy dane dla modelu User (są w kluczu 'user' bo source='user.xyz')
+        user_data = validated_data.pop('user', {})
+        
+        # Aktualizacja User
+        user = instance.user
+        if 'first_name' in user_data:
+            user.first_name = user_data['first_name']
+        if 'last_name' in user_data:
+            user.last_name = user_data['last_name']
+        if 'email' in user_data:
+            user.email = user_data['email']
+        user.save()
+        
+        # Aktualizacja UserProfile (reszta pól)
+        return super().update(instance, validated_data)
+
+
+class DriverProfileSerializer(serializers.ModelSerializer):
+    """Prosty serializer do wyświetlania danych kierowcy przy przejeździe"""
+    username = serializers.CharField(source='user.username', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    
+    class Meta:
+        model = UserProfile
+        fields = ['username', 'first_name', 'last_name', 'avatar', 'phone_number']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -48,17 +81,18 @@ class BookingSerializer(serializers.ModelSerializer):
 
 class TripSerializer(serializers.ModelSerializer):
     driver_username = serializers.ReadOnlyField(source='driver.username')
+    driver_profile = DriverProfileSerializer(source='driver.profile', read_only=True)
     bookings = BookingSerializer(many=True, read_only=True)
     intermediate_stops = serializers.JSONField(default=list, required=False)
 
     class Meta:
         model = Trip
         fields = [
-            'id', 'driver', 'driver_username', 'start_location', 'end_location',
+            'id', 'driver', 'driver_username', 'driver_profile', 'start_location', 'end_location',
             'intermediate_stops', 'date', 'time', 'available_seats',
             'price_per_seat', 'created_at', 'updated_at', 'bookings'
         ]
-        read_only_fields = ['id', 'driver', 'created_at', 'updated_at', 'bookings']
+        read_only_fields = ['id', 'driver', 'created_at', 'updated_at', 'bookings', 'driver_profile']
     
     def to_representation(self, instance):
         data = super().to_representation(instance)

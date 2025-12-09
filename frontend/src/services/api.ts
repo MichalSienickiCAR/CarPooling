@@ -30,6 +30,10 @@ export interface UserProfile {
   preferred_role: 'driver' | 'passenger' | 'both';
   username: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
+  phone_number?: string;
+  avatar?: string | null;
 }
 
 export const authService = {
@@ -43,9 +47,9 @@ export const authService = {
   },
 
   async register(username: string, email: string, password: string, preferredRole: 'driver' | 'passenger' | 'both' = 'both') {
-    const response = await api.post('/user/register/', { 
-      username, 
-      email, 
+    const response = await api.post('/user/register/', {
+      username,
+      email,
       password,
       preferred_role: preferredRole
     });
@@ -77,16 +81,30 @@ export const authService = {
     return response.data;
   },
 
-  async updateUserProfile(preferredRole: 'driver' | 'passenger' | 'both'): Promise<UserProfile> {
-    const response = await api.patch('/user/profile/', { preferred_role: preferredRole });
+  async updateUserProfile(data: Partial<UserProfile> | FormData): Promise<UserProfile> {
+    const config = {
+      headers: {
+        'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json',
+      },
+    };
+    const response = await api.patch('/user/profile/', data, config);
     return response.data;
   },
 };
+
+export interface DriverProfile {
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string | null;
+  phone_number?: string;
+}
 
 export interface Trip {
   id?: number;
   driver?: number;
   driver_username?: string;
+  driver_profile?: DriverProfile;
   start_location: string;
   end_location: string;
   intermediate_stops: string[];
@@ -126,6 +144,11 @@ export const tripService = {
 
   async getTrips() {
     const response = await api.get('/trips/');
+    return response.data;
+  },
+
+  async getTrip(tripId: number | string) {
+    const response = await api.get(`/trips/${tripId}/`);
     return response.data;
   },
 

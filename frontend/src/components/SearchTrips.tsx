@@ -3,7 +3,6 @@ import {
   AppBar,
   Box,
   Button,
-  Chip,
   Container,
   Paper,
   Stack,
@@ -13,18 +12,33 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  InputAdornment,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Avatar,
+  IconButton,
+  Menu,
+  MenuItem
 } from '@mui/material';
-import { Search, DirectionsCar, LocationOn, CalendarToday, AccessTime, People, AttachMoney } from '@mui/icons-material';
+import {
+  Search as SearchIcon,
+  ArrowForward,
+  CalendarToday,
+  PersonOutline,
+  Close as CloseIcon,
+  Logout
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import { Trip, tripService } from '../services/api';
+import { Trip, tripService, authService } from '../services/api';
 
 const validationSchema = yup.object({
-  start_location: yup.string().required('Punkt początkowy jest wymagany'),
-  end_location: yup.string().required('Punkt docelowy jest wymagany'),
-  date: yup.string().required('Data jest wymagana'), // Data jest wymagana
+  start_location: yup.string(),
+  end_location: yup.string(),
+  date: yup.string(),
 });
 
 interface SearchFormData {
@@ -39,19 +53,31 @@ export const SearchTrips: React.FC = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [sortBy, setSortBy] = useState('price');
+
+  const [passengerCount, setPassengerCount] = useState(1);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  const formatPrice = (price: number) => {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', fontWeight: 'bold' }}>
+        <Typography variant="body1" sx={{ fontSize: '1.2rem', fontWeight: 'bold', mt: 0.5 }}>zł</Typography>
+        <Typography variant="h3" sx={{ fontWeight: 'bold' }}>{price}</Typography>
+      </Box>
+    );
+  };
 
   const formik = useFormik<SearchFormData>({
     initialValues: {
       start_location: '',
       end_location: '',
-      date: '',
+      date: new Date().toISOString().split('T')[0],
     },
     validationSchema,
     onSubmit: async (values) => {
       setLoading(true);
       setSearched(true);
       try {
-        // Budujemy parametry tylko dla wypełnionych pól
         const params = new URLSearchParams();
         if (values.start_location && values.start_location.trim()) {
           params.append('start_location', values.start_location.trim());
@@ -62,27 +88,18 @@ export const SearchTrips: React.FC = () => {
         if (values.date && values.date.trim()) {
           params.append('date', values.date.trim());
         }
-        
-        console.log('Searching with params:', {
-          start: values.start_location.trim(),
-          end: values.end_location.trim(),
-          date: values.date,
-          paramsString: params.toString()
-        });
+
         const data = await tripService.searchTrips(params.toString());
-        console.log('Found trips:', data);
-        console.log('Number of trips found:', data.length);
-        setTrips(data);
-        if (data.length === 0) {
+
+        const filteredBySeats = data.filter((trip: Trip) => trip.available_seats >= passengerCount);
+
+        setTrips(filteredBySeats);
+        if (filteredBySeats.length === 0) {
           enqueueSnackbar('Nie znaleziono przejazdów spełniających kryteria.', { variant: 'info' });
         }
       } catch (error: any) {
         console.error('Search error:', error);
-        const msg =
-          error.response?.data?.detail ||
-          error.response?.data?.message ||
-          'Nie udało się wyszukać przejazdów.';
-        enqueueSnackbar(msg, { variant: 'error' });
+        enqueueSnackbar('Nie udało się wyszukać przejazdów.', { variant: 'error' });
         setTrips([]);
       } finally {
         setLoading(false);
@@ -90,230 +107,255 @@ export const SearchTrips: React.FC = () => {
     },
   });
 
-  const formatRoute = (trip: Trip) => {
-    const stops = trip.intermediate_stops || [];
-    if (stops.length === 0) {
-      return `${trip.start_location} → ${trip.end_location}`;
-    }
-    return `${trip.start_location} → [${stops.join(', ')}] → ${trip.end_location}`;
+  const sortedTrips = [...trips].sort((a, b) => {
+    if (sortBy === 'price') return a.price_per_seat - b.price_per_seat;
+    if (sortBy === 'time') return a.time.localeCompare(b.time);
+    return 0;
+  });
+
+  const getArrivalTime = (departureTime: string) => {
+    if (!departureTime) return "00:00";
+    const [hours, minutes] = departureTime.split(':').map(Number);
+    let arrHours = hours + 2;
+    if (arrHours >= 24) arrHours -= 24;
+    return `${arrHours}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  const handlePassengerClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handlePassengerClose = () => {
+    setAnchorEl(null);
+  };
+  const handlePassengerSelect = (count: number) => {
+    setPassengerCount(count);
+    handlePassengerClose();
+  };
+
+  const getDisplayDate = (dateStr: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    if (dateStr === today) return "Dzisiaj";
+    return dateStr;
   };
 
   return (
-    <>
-      <AppBar position="static">
-        <Toolbar>
-          <DirectionsCar sx={{ mr: 2 }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Wyszukaj przejazd
-          </Typography>
-          <Button color="inherit" onClick={() => navigate('/passenger')}>
-            Panel Pasażera
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
-            mb: 4,
-          }}
-        >
-          <Typography variant="h4" gutterBottom>
-            Wyszukaj przejazd
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Podaj miejsce startu, cel oraz datę, aby znaleźć dostępne przejazdy.
-          </Typography>
-          <Box component="form" onSubmit={formik.handleSubmit}>
-            <Stack spacing={3}>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <Box sx={{ flex: 1 }}>
-                  <TextField
-                    fullWidth
-                    label="Punkt początkowy"
-                    name="start_location"
-                    value={formik.values.start_location}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={formik.touched.start_location && Boolean(formik.errors.start_location)}
-                    helperText={formik.touched.start_location && formik.errors.start_location}
-                    InputProps={{
-                      startAdornment: <LocationOn sx={{ mr: 1, color: 'action.active' }} />,
-                    }}
-                  />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <TextField
-                    fullWidth
-                    label="Punkt docelowy"
-                    name="end_location"
-                    value={formik.values.end_location}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={formik.touched.end_location && Boolean(formik.errors.end_location)}
-                    helperText={formik.touched.end_location && formik.errors.end_location}
-                    InputProps={{
-                      startAdornment: <LocationOn sx={{ mr: 1, color: 'action.active' }} />,
-                    }}
-                  />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <TextField
-                    fullWidth
-                    label="Data"
-                    name="date"
-                    type="date"
-                    value={formik.values.date}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={formik.touched.date && Boolean(formik.errors.date)}
-                    helperText={formik.touched.date && formik.errors.date}
-                    InputLabelProps={{ shrink: true }}
-                    InputProps={{
-                      startAdornment: <CalendarToday sx={{ mr: 1, color: 'action.active' }} />,
-                    }}
-                    inputProps={{
-                      min: new Date().toISOString().split('T')[0] // Minimalna data to dzisiaj
-                    }}
-                  />
-                </Box>
-              </Stack>
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                startIcon={<Search />}
-                disabled={loading}
-                sx={{
-                  background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-                  boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)',
-                  },
-                  maxWidth: 300,
-                  mx: 'auto',
-                }}
-              >
-                {loading ? 'Wyszukiwanie...' : 'Szukaj przejazdów'}
-              </Button>
-            </Stack>
-          </Box>
-        </Paper>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#fff' }}>
 
-        {loading && (
-          <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress />
-          </Box>
-        )}
-
-        {!loading && searched && trips.length > 0 && (
-          <Box>
-            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-              Znalezione przejazdy ({trips.length})
+      {/* Navbar */}
+      <Box sx={{ bgcolor: '#e0e0e0', pb: 4 }}>
+        <AppBar position="static" color="transparent" elevation={0}>
+          <Toolbar sx={{ justifyContent: 'space-between' }}>
+            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: '#000', ml: 4, cursor: 'pointer' }} onClick={() => navigate('/')}>
+              Sheero
             </Typography>
-            <Stack spacing={2}>
-              {trips.map((trip) => (
-                <Card key={trip.id} elevation={2} sx={{ borderRadius: 3 }}>
-                  <CardContent>
-                    <Stack spacing={2}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          {formatRoute(trip)}
-                        </Typography>
-                        <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mt: 1 }}>
-                          <Chip
-                            icon={<CalendarToday />}
-                            label={trip.date}
-                            size="small"
-                            variant="outlined"
-                          />
-                          <Chip
-                            icon={<AccessTime />}
-                            label={trip.time}
-                            size="small"
-                            variant="outlined"
-                          />
-                          <Chip
-                            icon={<People />}
-                            label={`${trip.available_seats} miejsc`}
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                          />
-                          <Chip
-                            icon={<AttachMoney />}
-                            label={`${trip.price_per_seat} PLN`}
-                            size="small"
-                            variant="outlined"
-                            color="success"
-                          />
-                        </Stack>
-                        {trip.intermediate_stops && trip.intermediate_stops.length > 0 && (
-                          <Box mt={2}>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                              Punkty pośrednie:
-                            </Typography>
-                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                              {trip.intermediate_stops.map((stop: string, idx: number) => (
-                                <Chip
-                                  key={idx}
-                                  label={stop}
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                />
-                              ))}
-                            </Stack>
-                          </Box>
-                        )}
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                          Kierowca: <strong>{trip.driver_username}</strong>
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          fullWidth
-                          onClick={() => {
-                            // TODO: Implementacja rezerwacji
-                            enqueueSnackbar('Funkcjonalność rezerwacji będzie dostępna wkrótce.', {
-                              variant: 'info',
-                            });
-                          }}
-                        >
-                          Zarezerwuj miejsce
-                        </Button>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
-            </Stack>
-          </Box>
-        )}
 
-        {!loading && searched && trips.length === 0 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Button color="inherit" sx={{ textTransform: 'none' }} onClick={() => navigate('/search')}>
+                Wyszukaj
+              </Button>
+              {/* Link do profilu */}
+              <IconButton onClick={() => navigate('/profile')}>
+                <Avatar
+                  src="https://mui.com/static/images/avatar/1.jpg"
+                  sx={{ width: 40, height: 40, border: '2px solid white' }}
+                />
+              </IconButton>
+              <IconButton onClick={() => { authService.logout(); navigate('/login'); }} title="Wyloguj">
+                <Logout />
+              </IconButton>
+            </Box>
+          </Toolbar>
+        </AppBar>
+
+        {/* Pasek Wyszukiwania */}
+        <Container maxWidth="lg">
           <Paper
-            elevation={2}
+            component="form"
+            onSubmit={formik.handleSubmit}
+            elevation={0}
             sx={{
-              p: 4,
-              textAlign: 'center',
-              background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
+              p: '8px',
+              borderRadius: '50px',
+              bgcolor: '#f5f5f5',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              boxShadow: '0px 2px 10px rgba(0,0,0,0.05)',
+              mx: 4,
+              flexWrap: 'wrap'
             }}
           >
-            <Typography variant="h6" gutterBottom>
-              Nie znaleziono przejazdów
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Spróbuj zmienić kryteria wyszukiwania lub wybierz inną datę.
-            </Typography>
+            <Paper sx={{ px: 2, py: 0.5, borderRadius: '30px', flex: 1.5, display: 'flex', alignItems: 'center', boxShadow: '0px 1px 3px rgba(0,0,0,0.1)' }}>
+              <TextField
+                fullWidth placeholder="Miejsce wyjazdu" variant="standard"
+                name="start_location" value={formik.values.start_location} onChange={formik.handleChange}
+                InputProps={{ disableUnderline: true, endAdornment: formik.values.start_location && <IconButton size="small" onClick={() => formik.setFieldValue('start_location', '')}><CloseIcon fontSize="small" /></IconButton> }}
+              />
+            </Paper>
+
+            <ArrowForward color="action" />
+
+            <Paper sx={{ px: 2, py: 0.5, borderRadius: '30px', flex: 1.5, display: 'flex', alignItems: 'center', boxShadow: '0px 1px 3px rgba(0,0,0,0.1)' }}>
+              <TextField
+                fullWidth placeholder="Miejsce docelowe" variant="standard"
+                name="end_location" value={formik.values.end_location} onChange={formik.handleChange}
+                InputProps={{ disableUnderline: true, endAdornment: formik.values.end_location && <IconButton size="small" onClick={() => formik.setFieldValue('end_location', '')}><CloseIcon fontSize="small" /></IconButton> }}
+              />
+            </Paper>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, px: 3, borderLeft: '1px solid #ccc', borderRight: '1px solid #ccc', height: '30px' }}>
+              <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 1, color: '#424242', cursor: 'pointer' }}>
+                <CalendarToday fontSize="small" sx={{ pointerEvents: 'none' }} />
+                <Typography variant="body2" sx={{ whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                  {getDisplayDate(formik.values.date)}
+                </Typography>
+                <TextField
+                  type="date"
+                  name="date"
+                  value={formik.values.date}
+                  onChange={formik.handleChange}
+                  variant="standard"
+                  InputProps={{ disableUnderline: true }}
+                  sx={{
+                    position: 'absolute',
+                    top: 0, left: 0, width: '100%', height: '100%',
+                    opacity: 0,
+                    cursor: 'pointer',
+                    '& input': { cursor: 'pointer', height: '100%' }
+                  }}
+                />
+              </Box>
+
+              <Box
+                onClick={handlePassengerClick}
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#424242', cursor: 'pointer' }}
+              >
+                <PersonOutline />
+                <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                  {passengerCount} {passengerCount === 1 ? 'pasażer' : 'pasażerów'}
+                </Typography>
+              </Box>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handlePassengerClose}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                  <MenuItem key={num} onClick={() => handlePassengerSelect(num)}>
+                    {num} {num === 1 ? 'pasażer' : 'pasażerów'}
+                  </MenuItem>
+                ))}
+              </Menu>
+
+            </Box>
+
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                borderRadius: '30px',
+                bgcolor: '#c62828',
+                px: 4, py: 1,
+                textTransform: 'none',
+                fontSize: '1rem',
+                minWidth: '120px',
+                '&:hover': { bgcolor: '#b71c1c' }
+              }}
+            >
+              Szukaj
+            </Button>
           </Paper>
-        )}
+        </Container>
+      </Box>
+
+      {/* Main Content */}
+      <Container maxWidth="lg" sx={{ mt: 6 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 6 }}>
+          {/* Sidebar */}
+          <Box sx={{ width: { xs: '100%', md: '25%' } }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ color: '#757575', mb: 2 }}>Sortuj według</Typography>
+            <RadioGroup value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <FormControlLabel value="time" control={<Radio color="default" size="small" />} label={<Typography variant="body2">Godziny odjazdu</Typography>} sx={{ mb: 1 }} />
+              <FormControlLabel value="price" control={<Radio color="default" size="small" />} label={<Typography variant="body2">Ceny</Typography>} sx={{ mb: 1 }} />
+              <FormControlLabel value="dist" control={<Radio color="default" size="small" />} label={<Typography variant="body2">Blisko miejsca wyjazdu</Typography>} sx={{ mb: 1 }} />
+              <FormControlLabel value="duration" control={<Radio color="default" size="small" />} label={<Typography variant="body2">Najkrótszy przejazd</Typography>} sx={{ mb: 1 }} />
+            </RadioGroup>
+          </Box>
+
+          {/* Results */}
+          <Box sx={{ width: { xs: '100%', md: '75%' } }}>
+            <Paper elevation={0} sx={{ bgcolor: '#e0e0e0', py: 1.5, px: 3, borderRadius: '20px', mb: 4, textAlign: 'center' }}>
+              <Typography variant="body1">
+                {loading ? 'Szukanie...' : `Wyszukało ${trips.length} przejazdy`}
+              </Typography>
+            </Paper>
+
+            <Stack spacing={3}>
+              {loading ? (
+                <Box display="flex" justifyContent="center"><CircularProgress /></Box>
+              ) : (
+                sortedTrips.map((trip) => (
+                  <Paper
+                    key={trip.id}
+                    elevation={0}
+                    onClick={() => navigate(`/trips/${trip.id}`)}
+                    sx={{
+                      borderRadius: '30px',
+                      overflow: 'hidden',
+                      border: '1px solid #eee',
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      '&:hover': {
+                        transform: 'scale(1.01)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                      }
+                    }}
+                  >
+                    <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ width: '60%' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, px: 2 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{trip.time?.substring(0, 5)}</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{getArrivalTime(trip.time)}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#000' }}>
+                          <Typography variant="body1">{trip.start_location}</Typography>
+                          <ArrowForward fontSize="small" sx={{ color: '#000' }} />
+                          <Typography variant="body1">{trip.end_location}</Typography>
+                        </Box>
+                      </Box>
+                      <Box>{formatPrice(trip.price_per_seat)}</Box>
+                    </Box>
+
+                    <Box sx={{ bgcolor: '#dcdcdc', p: 2, px: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar
+                          src={trip.driver_profile?.avatar || undefined}
+                          sx={{ width: 40, height: 40, border: '2px solid white', bgcolor: '#c62828' }}
+                        >
+                          {(!trip.driver_profile?.avatar && trip.driver_username) ? trip.driver_username[0].toUpperCase() : null}
+                        </Avatar>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {trip.driver_username || 'Nieznany'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Typography variant="caption" color="text.secondary">Pasażerowie</Typography>
+                        <Box sx={{ display: 'flex', ml: 1 }}>
+                          <Avatar sx={{ width: 30, height: 30, border: '2px solid white', fontSize: '10px' }} />
+                          <Avatar sx={{ width: 30, height: 30, border: '2px solid white', ml: -1, bgcolor: '#f5f5f5', color: '#757575', fontSize: '12px' }}>+{trip.bookings?.length || 0}</Avatar>
+                        </Box>
+                      </Box>
+                    </Box>
+                  </Paper>
+                ))
+              )}
+              {!loading && searched && trips.length === 0 && (
+                <Typography align="center" color="text.secondary">Brak wyników wyszukiwania.</Typography>
+              )}
+            </Stack>
+          </Box>
+        </Box>
       </Container>
-    </>
+    </Box>
   );
 };
-

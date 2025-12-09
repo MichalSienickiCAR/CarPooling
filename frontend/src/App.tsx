@@ -9,15 +9,19 @@ import { PassengerDashboard } from './components/PassengerDashboard';
 import { SearchTrips } from './components/SearchTrips';
 import { AddTrip } from './components/AddTrip';
 import { MyTrips } from './components/MyTrips';
+import { LandingPage } from './components/LandingPage';
+import { UserProfile } from './components/UserProfile';
+import { TripDetails } from './components/TripDetails';
+import { ProtectedRoute } from './components/ProtectedRoute'; // Import ProtectedRoute
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
 
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#2196f3',
-      light: '#64b5f6',
-      dark: '#1976d2',
+      main: '#c62828', // Red from mockup
+      light: '#ff5f52',
+      dark: '#8e0000',
     },
     secondary: {
       main: '#f50057',
@@ -25,7 +29,7 @@ const theme = createTheme({
       dark: '#c51162',
     },
     background: {
-      default: '#f5f5f5',
+      default: '#fff', // White background
     },
   },
   typography: {
@@ -73,7 +77,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <SnackbarProvider 
+      <SnackbarProvider
         maxSnack={3}
         anchorOrigin={{
           vertical: 'top',
@@ -85,13 +89,19 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/driver" element={<DriverDashboard />} />
-            <Route path="/passenger" element={<PassengerDashboard />} />
-            <Route path="/search" element={<SearchTrips />} />
-            <Route path="/trips/add" element={<AddTrip />} />
-            <Route path="/trips/mine" element={<MyTrips />} />
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<LandingPage />} />
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/driver" element={<DriverDashboard />} />
+              <Route path="/passenger" element={<PassengerDashboard />} />
+              <Route path="/search" element={<SearchTrips />} />
+              <Route path="/trips/add" element={<AddTrip />} />
+              <Route path="/trips/mine" element={<MyTrips />} />
+              <Route path="/profile" element={<UserProfile />} />
+              <Route path="/trips/:id" element={<TripDetails />} />
+            </Route>
           </Routes>
         </Router>
       </SnackbarProvider>

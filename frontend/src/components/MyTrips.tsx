@@ -18,36 +18,31 @@ import {
   Paper,
   Stack,
   TextField,
-  Toolbar,
   Typography,
-  Card,
-  CardContent,
 } from '@mui/material';
 import {
   Add,
-  DirectionsCar,
   Edit,
-  Groups,
-  HighlightOff,
+  Delete,
+  People,
   Refresh,
+  ArrowForward,
+  Logout,
+  ArrowBack
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import { Booking, Trip, TripFormData, tripService } from '../services/api';
+import { Booking, Trip, TripFormData, tripService, authService } from '../services/api';
 
 const validationSchema = yup.object({
-  start_location: yup.string().required('Punkt początkowy jest wymagany').min(3, 'Minimum 3 znaki'),
-  end_location: yup.string().required('Punkt docelowy jest wymagany').min(3, 'Minimum 3 znaki'),
-  date: yup.string().required('Data jest wymagana'),
-  time: yup.string().required('Godzina jest wymagana'),
-  available_seats: yup
-    .number()
-    .required('Liczba miejsc jest wymagana')
-    .min(1, 'Co najmniej 1 miejsce')
-    .integer('Musi być liczbą całkowitą'),
-  price_per_seat: yup.number().required('Cena jest wymagana').min(0, 'Cena nie może być ujemna'),
+  start_location: yup.string().required('Wymagane'),
+  end_location: yup.string().required('Wymagane'),
+  date: yup.string().required('Wymagane'),
+  time: yup.string().required('Wymagane'),
+  available_seats: yup.number().required('Wymagane'),
+  price_per_seat: yup.number().required('Wymagane'),
 });
 
 export const MyTrips: React.FC = () => {
@@ -61,7 +56,6 @@ export const MyTrips: React.FC = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [passengersDialogOpen, setPassengersDialogOpen] = useState(false);
   const [passengers, setPassengers] = useState<Booking[]>([]);
-  const [passengersLoading, setPassengersLoading] = useState(false);
 
   const loadTrips = async () => {
     setLoading(true);
@@ -69,11 +63,7 @@ export const MyTrips: React.FC = () => {
       const data = await tripService.getMyTrips();
       setTrips(data);
     } catch (error: any) {
-      const msg =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        'Nie udało się pobrać przejazdów.';
-      enqueueSnackbar(msg, { variant: 'error' });
+      enqueueSnackbar('Nie udało się pobrać przejazdów.', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -83,413 +73,191 @@ export const MyTrips: React.FC = () => {
     loadTrips();
   }, []);
 
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/login');
+  };
+
   const handleOpenEdit = (trip: Trip) => {
     setSelectedTrip(trip);
     setEditStops(trip.intermediate_stops || []);
-    setNewStop('');
     setEditDialogOpen(true);
   };
 
-  const handleCloseEdit = () => {
-    setEditDialogOpen(false);
-    setSelectedTrip(null);
-    setEditStops([]);
-    setNewStop('');
-  };
-
-  const handleAddStop = () => {
-    const value = newStop.trim();
-    if (value && !editStops.includes(value)) {
-      setEditStops((prev) => [...prev, value]);
-      setNewStop('');
+  const handleShowPassengers = async (trip: Trip) => {
+    setPassengersDialogOpen(true);
+    try {
+      const data = await tripService.getPassengers(trip.id!);
+      setPassengers(data);
+    } catch (error) {
+      enqueueSnackbar('Błąd pobierania pasażerów', { variant: 'error' });
     }
   };
 
-  const handleRemoveStop = (stop: string) => {
-    setEditStops((prev) => prev.filter((s) => s !== stop));
+  const handleCancelTrip = async (trip: Trip) => {
+    if (window.confirm("Czy na pewno anulować?")) {
+      try {
+        await tripService.cancelTrip(trip.id!);
+        enqueueSnackbar('Anulowano', { variant: 'info' });
+        loadTrips();
+      } catch (e) { enqueueSnackbar('Błąd', { variant: 'error' }); }
+    }
   };
 
   const formik = useFormik<TripFormData>({
     enableReinitialize: true,
     initialValues: selectedTrip
       ? {
-          start_location: selectedTrip.start_location,
-          end_location: selectedTrip.end_location,
-          intermediate_stops: selectedTrip.intermediate_stops || [],
-          date: selectedTrip.date,
-          time: selectedTrip.time,
-          available_seats: selectedTrip.available_seats,
-          price_per_seat: Number(selectedTrip.price_per_seat),
-        }
-      : {
-          start_location: '',
-          end_location: '',
-          intermediate_stops: [],
-          date: '',
-          time: '',
-          available_seats: 1,
-          price_per_seat: 0,
-        },
+        start_location: selectedTrip.start_location,
+        end_location: selectedTrip.end_location,
+        intermediate_stops: selectedTrip.intermediate_stops || [],
+        date: selectedTrip.date,
+        time: selectedTrip.time,
+        available_seats: selectedTrip.available_seats,
+        price_per_seat: Number(selectedTrip.price_per_seat),
+      }
+      : { start_location: '', end_location: '', intermediate_stops: [], date: '', time: '', available_seats: 1, price_per_seat: 0 },
     validationSchema,
     onSubmit: async (values) => {
       if (!selectedTrip?.id) return;
       try {
-        await tripService.updateTrip(selectedTrip.id, {
-          ...values,
-          intermediate_stops: editStops,
-        });
-        enqueueSnackbar('Przejazd został zaktualizowany.', { variant: 'success' });
-        await loadTrips();
-        handleCloseEdit();
-      } catch (error: any) {
-        const msg =
-          error.response?.data?.detail ||
-          error.response?.data?.message ||
-          'Nie udało się zaktualizować przejazdu.';
-        enqueueSnackbar(msg, { variant: 'error' });
-      }
+        await tripService.updateTrip(selectedTrip.id, { ...values, intermediate_stops: editStops });
+        enqueueSnackbar('Zaktualizowano', { variant: 'success' });
+        loadTrips();
+        setEditDialogOpen(false);
+      } catch (e) { enqueueSnackbar('Błąd aktualizacji', { variant: 'error' }); }
     },
   });
 
-  const handleShowPassengers = async (trip: Trip) => {
-    setPassengersDialogOpen(true);
-    setPassengers([]);
-    setPassengersLoading(true);
-    try {
-      const data = await tripService.getPassengers(trip.id!);
-      setPassengers(data);
-    } catch (error: any) {
-      const msg =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        'Nie udało się pobrać listy pasażerów.';
-      enqueueSnackbar(msg, { variant: 'error' });
-      setPassengersDialogOpen(false);
-    } finally {
-      setPassengersLoading(false);
-    }
-  };
-
-  const handleCancelTrip = async (trip: Trip) => {
-    const confirmed = window.confirm('Czy na pewno chcesz anulować ten przejazd?');
-    if (!confirmed || !trip.id) return;
-    try {
-      await tripService.cancelTrip(trip.id);
-      enqueueSnackbar('Przejazd został anulowany.', { variant: 'info' });
-      await loadTrips();
-    } catch (error: any) {
-      const msg =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        'Nie udało się anulować przejazdu.';
-      enqueueSnackbar(msg, { variant: 'error' });
-    }
-  };
-
-  const formatRoute = (trip: Trip) => {
-    const stops = trip.intermediate_stops || [];
-    if (stops.length === 0) {
-      return `${trip.start_location} → ${trip.end_location}`;
-    }
-    return `${trip.start_location} → [${stops.join(', ')}] → ${trip.end_location}`;
-  };
-
   return (
-    <>
-      <AppBar position="static">
-        <Toolbar>
-          <DirectionsCar sx={{ mr: 2 }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Moje przejazdy
-          </Typography>
-          <Button color="inherit" onClick={() => navigate('/driver')}>
-            Panel Kierowcy
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
-            minHeight: 400,
-          }}
+    <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
+      {/* Navbar */}
+      <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#e0e0e0', mb: 4 }}>
+        <Typography
+          variant="h5"
+          sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer', ml: 4 }}
+          onClick={() => navigate('/')}
         >
-          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} mb={3}>
-            <Box>
-              <Typography variant="h4" gutterBottom>
-                Moje przejazdy
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Zarządzaj opublikowanymi ofertami, edytuj je, anuluj lub zobacz pasażerów.
-              </Typography>
-            </Box>
-            <Stack direction="row" spacing={1}>
-              <Button variant="outlined" startIcon={<Refresh />} onClick={loadTrips} disabled={loading}>
-                Odśwież
-              </Button>
-              <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/trips/add')}>
-                Dodaj przejazd
-              </Button>
-            </Stack>
+          Sheero
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, mr: 4 }}>
+          <Button color="inherit" onClick={() => navigate('/driver')} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
+            Wróć
+          </Button>
+          <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
+            Wyloguj
+          </Button>
+        </Box>
+      </Box>
+
+      <Container maxWidth="lg" sx={{ flexGrow: 1, pb: 8 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Moje przejazdy</Typography>
+          <Button
+            variant="contained" startIcon={<Add />} onClick={() => navigate('/trips/add')}
+            sx={{ bgcolor: '#c62828', borderRadius: '30px', px: 3, textTransform: 'none', fontWeight: 'bold', '&:hover': { bgcolor: '#b71c1c' } }}
+          >
+            Dodaj przejazd
+          </Button>
+        </Stack>
+
+        {loading ? (
+          <Box display='flex' justifyContent='center'><CircularProgress /></Box>
+        ) : trips.length === 0 ? (
+          <Paper elevation={0} sx={{ bgcolor: '#f5f5f5', p: 6, borderRadius: '30px', textAlign: 'center' }}>
+            <Typography color="textSecondary">Nie masz jeszcze żadnych przejazdów.</Typography>
+          </Paper>
+        ) : (
+          <Stack spacing={3}>
+            {trips.map(trip => (
+              <Paper key={trip.id} elevation={0} sx={{ p: 3, borderRadius: '30px', border: '1px solid #eee', bgcolor: '#fff' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  {/* Route & Time */}
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                      <Typography variant="h5" fontWeight="bold">{trip.start_location}</Typography>
+                      <ArrowForward color="action" />
+                      <Typography variant="h5" fontWeight="bold">{trip.end_location}</Typography>
+                    </Box>
+                    <Typography variant="body1" color="textSecondary">{trip.date} • {trip.time.substring(0, 5)}</Typography>
+                  </Box>
+                  {/* Price */}
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="h4" fontWeight="bold" color="primary">{trip.price_per_seat} zł</Typography>
+                    <Typography variant="caption" color="textSecondary">za osobę</Typography>
+                  </Box>
+                </Box>
+
+                {/* Intermediate Stops */}
+                {trip.intermediate_stops && trip.intermediate_stops.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+                    {trip.intermediate_stops.map((stop, i) => (
+                      <Chip key={i} label={stop} size="small" variant="outlined" />
+                    ))}
+                  </Box>
+                )}
+
+                <Divider sx={{ mb: 2 }} />
+
+                {/* Actions */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Button
+                    startIcon={<People />}
+                    onClick={() => handleShowPassengers(trip)}
+                    sx={{ color: '#000', textTransform: 'none', background: '#f5f5f5', borderRadius: '20px', px: 2, '&:hover': { background: '#eee' } }}
+                  >
+                    Pasażerowie ({trip.bookings?.length || 0})
+                  </Button>
+
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <IconButton onClick={() => handleOpenEdit(trip)} color="primary" sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}>
+                      <Edit />
+                    </IconButton>
+                    <IconButton onClick={() => handleCancelTrip(trip)} color="error" sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}>
+                      <Delete />
+                    </IconButton>
+                  </Box>
+                </Box>
+              </Paper>
+            ))}
           </Stack>
-          <Divider sx={{ mb: 3 }} />
-          {loading ? (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
-              <CircularProgress />
-            </Box>
-          ) : trips.length === 0 ? (
-            <Box textAlign="center" py={6}>
-              <Typography variant="h6" gutterBottom>
-                Nie masz jeszcze żadnych przejazdów.
-              </Typography>
-              <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/trips/add')}>
-                Dodaj pierwszy przejazd
-              </Button>
-            </Box>
-          ) : (
-            <Stack spacing={2}>
-              {trips.map((trip) => {
-                const stops = trip.intermediate_stops || [];
-                const hasStops = Array.isArray(stops) && stops.length > 0;
-                return (
-                  <Card key={trip.id} elevation={2} sx={{ borderRadius: 3 }}>
-                    <CardContent>
-                      <Stack spacing={2}>
-                        <Box>
-                          <Typography variant="h6" gutterBottom>
-                            {formatRoute(trip)}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            {trip.date} o {trip.time}
-                          </Typography>
-                          <Stack direction="row" spacing={2} mt={1} flexWrap="wrap">
-                            <Typography variant="body2">
-                              Miejsca: <strong>{trip.available_seats}</strong>
-                            </Typography>
-                            <Typography variant="body2">
-                              Cena: <strong>{trip.price_per_seat} PLN</strong>
-                            </Typography>
-                          </Stack>
-                          {hasStops && (
-                            <Box mt={2} p={1.5} sx={{ bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'primary.main' }}>
-                                📍 Punkty pośrednie:
-                              </Typography>
-                              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                {stops.map((stop: string, idx: number) => (
-                                  <Chip
-                                    key={`${trip.id}-stop-${idx}`}
-                                    label={stop}
-                                    size="medium"
-                                    color="primary"
-                                    sx={{
-                                      fontWeight: 500,
-                                      '& .MuiChip-label': {
-                                        fontSize: '0.875rem',
-                                      },
-                                    }}
-                                  />
-                                ))}
-                              </Stack>
-                            </Box>
-                          )}
-                          {trip.bookings && trip.bookings.length > 0 && (
-                            <Typography variant="body2" color="text.secondary" mt={1}>
-                              Rezerwacje: {trip.bookings.length}
-                            </Typography>
-                          )}
-                        </Box>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<Groups />}
-                            onClick={() => handleShowPassengers(trip)}
-                            fullWidth={false}
-                          >
-                            Pasażerowie
-                          </Button>
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            startIcon={<Edit />}
-                            onClick={() => handleOpenEdit(trip)}
-                            fullWidth={false}
-                          >
-                            Edytuj
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            startIcon={<HighlightOff />}
-                            onClick={() => handleCancelTrip(trip)}
-                            fullWidth={false}
-                          >
-                            Anuluj
-                          </Button>
-                        </Stack>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </Stack>
-          )}
-        </Paper>
+        )}
       </Container>
 
-      <Dialog open={editDialogOpen} onClose={handleCloseEdit} maxWidth="sm" fullWidth>
-        <DialogTitle>Edytuj przejazd</DialogTitle>
-        <DialogContent dividers>
-          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1 }}>
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: '30px', p: 2 } }}>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Edytuj przejazd</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>Edycja trasy: {selectedTrip?.start_location} - {selectedTrip?.end_location}</Typography>
+          <Box component="form" sx={{ pt: 1 }}>
             <Stack spacing={2}>
-              <TextField
-                label="Punkt początkowy"
-                name="start_location"
-                value={formik.values.start_location}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.touched.start_location && Boolean(formik.errors.start_location)}
-                helperText={formik.touched.start_location && formik.errors.start_location}
-                fullWidth
-              />
-              <TextField
-                label="Punkt docelowy"
-                name="end_location"
-                value={formik.values.end_location}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.touched.end_location && Boolean(formik.errors.end_location)}
-                helperText={formik.touched.end_location && formik.errors.end_location}
-                fullWidth
-              />
-              <Stack spacing={1}>
-                <Typography variant="subtitle2">Punkty pośrednie</Typography>
-                <Stack direction="row" spacing={1}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Dodaj punkt pośredni"
-                    value={newStop}
-                    onChange={(e) => setNewStop(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddStop();
-                      }
-                    }}
-                  />
-                  <IconButton color="primary" onClick={handleAddStop} disabled={!newStop.trim()}>
-                    <Add />
-                  </IconButton>
-                </Stack>
-                {editStops.length > 0 && (
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {editStops.map((stop) => (
-                      <Chip
-                        key={stop}
-                        label={stop}
-                        onDelete={() => handleRemoveStop(stop)}
-                        color="primary"
-                        variant="outlined"
-                      />
-                    ))}
-                  </Stack>
-                )}
-              </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  label="Data"
-                  name="date"
-                  type="date"
-                  value={formik.values.date}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.date && Boolean(formik.errors.date)}
-                  helperText={formik.touched.date && formik.errors.date}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                />
-                <TextField
-                  label="Godzina"
-                  name="time"
-                  type="time"
-                  value={formik.values.time}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.time && Boolean(formik.errors.time)}
-                  helperText={formik.touched.time && formik.errors.time}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                />
-              </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  label="Liczba miejsc"
-                  name="available_seats"
-                  type="number"
-                  value={formik.values.available_seats}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.available_seats && Boolean(formik.errors.available_seats)}
-                  helperText={formik.touched.available_seats && formik.errors.available_seats}
-                  inputProps={{ min: 1 }}
-                  fullWidth
-                />
-                <TextField
-                  label="Cena za miejsce (PLN)"
-                  name="price_per_seat"
-                  type="number"
-                  value={formik.values.price_per_seat}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.price_per_seat && Boolean(formik.errors.price_per_seat)}
-                  helperText={formik.touched.price_per_seat && formik.errors.price_per_seat}
-                  inputProps={{ min: 0, step: 0.01 }}
-                  fullWidth
-                />
-              </Stack>
+              <TextField label="Data" type="date" name="date" value={formik.values.date} onChange={formik.handleChange} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField label="Godzina" type="time" name="time" value={formik.values.time} onChange={formik.handleChange} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField label="Miejsca" type="number" name="available_seats" value={formik.values.available_seats} onChange={formik.handleChange} fullWidth />
+              <TextField label="Cena" type="number" name="price_per_seat" value={formik.values.price_per_seat} onChange={formik.handleChange} fullWidth />
             </Stack>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseEdit}>Anuluj</Button>
-          <Button onClick={() => formik.handleSubmit()} variant="contained">
-            Zapisz zmiany
-          </Button>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditDialogOpen(false)} sx={{ borderRadius: '20px', color: '#757575' }}>Anuluj</Button>
+          <Button onClick={() => formik.handleSubmit()} variant="contained" sx={{ borderRadius: '20px', bgcolor: '#c62828', '&:hover': { bgcolor: '#b71c1c' } }}>Zapisz</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={passengersDialogOpen} onClose={() => setPassengersDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Pasażerowie</DialogTitle>
-        <DialogContent dividers>
-          {passengersLoading ? (
-            <Box display="flex" justifyContent="center" py={4}>
-              <CircularProgress size={32} />
-            </Box>
-          ) : passengers.length === 0 ? (
-            <Typography align="center" color="text.secondary">
-              Brak rezerwacji dla tego przejazdu.
-            </Typography>
-          ) : (
-            <List>
-              {passengers.map((passenger) => (
-                <ListItem key={passenger.id} divider>
-                  <ListItemText
-                    primary={`${passenger.passenger_username} (${passenger.seats} miejsc)`}
-                    secondary={`Status: ${passenger.status}`}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          )}
+      {/* Passengers Dialog */}
+      <Dialog open={passengersDialogOpen} onClose={() => setPassengersDialogOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: '30px' } }}>
+        <DialogTitle fontWeight="bold">Lista pasażerów</DialogTitle>
+        <DialogContent>
+          <List>
+            {passengers.length === 0 ? <Typography>Brak pasażerów</Typography> : passengers.map(p => (
+              <ListItem key={p.id} divider>
+                <ListItemText primary={p.passenger_username} secondary={`Miejsc: ${p.seats}, Status: ${p.status}`} />
+              </ListItem>
+            ))}
+          </List>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPassengersDialogOpen(false)}>Zamknij</Button>
-        </DialogActions>
+        <DialogActions><Button onClick={() => setPassengersDialogOpen(false)}>Zamknij</Button></DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 };
-

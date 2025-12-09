@@ -20,6 +20,9 @@ class UserProfile(models.Model):
         default='both',
         verbose_name='Preferowana rola'
     )
+    phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name='Numer telefonu')
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name='Zdjęcie profilowe')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

@@ -7,41 +7,21 @@ import {
   Container,
   TextField,
   Typography,
-  Link,
   Paper,
-  Avatar,
-  FormControl,
-  FormLabel,
   RadioGroup,
   FormControlLabel,
   Radio,
 } from '@mui/material';
-import { PersonAddOutlined } from '@mui/icons-material';
 import { authService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 
 const validationSchema = yup.object({
-  username: yup
-    .string()
-    .min(3, 'Username should be of minimum 3 characters length')
-    .required('Username is required'),
-  email: yup
-    .string()
-    .email('Enter a valid email')
-    .required('Email is required'),
-  password: yup
-    .string()
-    .min(8, 'Password should be of minimum 8 characters length')
-    .required('Password is required'),
-  confirmPassword: yup
-    .string()
-    .oneOf([yup.ref('password')], 'Passwords must match')
-    .required('Confirm password is required'),
-  preferredRole: yup
-    .string()
-    .oneOf(['driver', 'passenger', 'both'], 'Invalid role')
-    .required('Role selection is required'),
+  username: yup.string().min(3, 'Minimum 3 znaki').required('Wymagane'),
+  email: yup.string().email('Nieprawidłowy email').required('Wymagane'),
+  password: yup.string().min(8, 'Minimum 8 znaków').required('Wymagane'),
+  confirmPassword: yup.string().oneOf([yup.ref('password')], 'Hasła muszą być identyczne').required('Wymagane'),
+  preferredRole: yup.string().oneOf(['driver', 'passenger', 'both']).required('Wymagane'),
 });
 
 export const Register: React.FC = () => {
@@ -60,167 +40,128 @@ export const Register: React.FC = () => {
     onSubmit: async (values) => {
       try {
         await authService.register(values.username, values.email, values.password, values.preferredRole);
-        enqueueSnackbar('Rejestracja zakończona pomyślnie! Możesz się teraz zalogować.', { 
-          variant: 'success',
-        });
+        enqueueSnackbar('Rejestracja zakończona pomyślnie! Możesz się teraz zalogować.', { variant: 'success' });
         navigate('/login');
       } catch (error) {
-        enqueueSnackbar('Wystąpił błąd podczas rejestracji. Spróbuj ponownie.', { 
-          variant: 'error',
-        });
+        enqueueSnackbar('Wystąpił błąd podczas rejestracji.', { variant: 'error' });
         console.error('Registration failed:', error);
       }
     },
   });
 
-  return (
-    <Container component="main" maxWidth="xs">
-      <Box
+  const CustomInput = (props: any) => (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="subtitle2" sx={{ ml: 1, mb: 1, fontWeight: 'bold', color: '#424242' }}>{props.label}</Typography>
+      <TextField
+        fullWidth
+        variant="outlined"
+        placeholder={props.placeholder}
+        {...props}
+        label={null}
         sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
+          '& .MuiOutlinedInput-root': {
+            borderRadius: '20px',
+            bgcolor: 'white',
+            '& fieldset': { borderColor: 'transparent' },
+            '&:hover fieldset': { borderColor: '#e0e0e0' },
+            '&.Mui-focused fieldset': { borderColor: '#c62828' }
+          }
         }}
-      >
-        <Paper
-          elevation={6}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
-            boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)',
-          }}
+      />
+    </Box>
+  );
+
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
+      {/* Navbar */}
+      <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography
+          variant="h5"
+          sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer' }}
+          onClick={() => navigate('/')}
         >
-          <Avatar sx={{ 
-            m: 1, 
-            bgcolor: 'primary.main',
-            width: 56,
-            height: 56,
-          }}>
-            <PersonAddOutlined fontSize="large" />
-          </Avatar>
-          <Typography 
-            component="h1" 
-            variant="h5"
-            sx={{ 
-              mb: 3,
-              fontWeight: 600,
-              background: 'linear-gradient(45deg, #1976d2, #2196f3)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              color: 'transparent',
-            }}
-          >
-            Dołącz do nas
-          </Typography>
-          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1 }}>
-            <TextField
-              margin="normal"
-              fullWidth
-              id="username"
-              name="username"
-              label="Username"
-              value={formik.values.username}
-              onChange={formik.handleChange}
+          Sheero
+        </Typography>
+        <Button color="inherit" onClick={() => navigate('/login')} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
+          Zaloguj się
+        </Button>
+      </Box>
+
+      <Container maxWidth="sm" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pb: 8 }}>
+        <Paper elevation={0} sx={{ bgcolor: '#f5f5f5', p: { xs: 3, md: 6 }, borderRadius: '40px', width: '100%' }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', textAlign: 'center', mb: 1 }}>Dołącz do nas</Typography>
+          <Typography variant="body1" sx={{ textAlign: 'center', mb: 4, color: '#757575' }}>Utwórz nowe konto</Typography>
+
+          <Box component="form" onSubmit={formik.handleSubmit}>
+            <CustomInput
+              label="Nazwa użytkownika" placeholder="Twój login"
+              name="username" value={formik.values.username} onChange={formik.handleChange}
               error={formik.touched.username && Boolean(formik.errors.username)}
-              helperText={formik.touched.username && formik.errors.username}
-              autoComplete="username"
-              autoFocus
+            // helperText={formik.touched.username && formik.errors.username}
             />
-            <TextField
-              margin="normal"
-              fullWidth
-              id="email"
-              name="email"
-              label="Email Address"
-              value={formik.values.email}
-              onChange={formik.handleChange}
+            <CustomInput
+              label="Email" placeholder="twoj@email.com"
+              name="email" value={formik.values.email} onChange={formik.handleChange}
               error={formik.touched.email && Boolean(formik.errors.email)}
-              helperText={formik.touched.email && formik.errors.email}
-              autoComplete="email"
             />
-            <TextField
-              margin="normal"
-              fullWidth
-              id="password"
-              name="password"
-              label="Password"
-              type="password"
-              value={formik.values.password}
-              onChange={formik.handleChange}
+            <CustomInput
+              label="Hasło" placeholder="Minimum 8 znaków" type="password"
+              name="password" value={formik.values.password} onChange={formik.handleChange}
               error={formik.touched.password && Boolean(formik.errors.password)}
-              helperText={formik.touched.password && formik.errors.password}
-              autoComplete="new-password"
             />
-            <TextField
-              margin="normal"
-              fullWidth
-              id="confirmPassword"
-              name="confirmPassword"
-              label="Confirm Password"
-              type="password"
-              value={formik.values.confirmPassword}
-              onChange={formik.handleChange}
+            <CustomInput
+              label="Powtórz hasło" placeholder="Powtórz hasło" type="password"
+              name="confirmPassword" value={formik.values.confirmPassword} onChange={formik.handleChange}
               error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
-              helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
-              autoComplete="new-password"
             />
-            <FormControl component="fieldset" sx={{ mt: 2, width: '100%' }}>
-              <FormLabel component="legend">Wybierz swoją rolę</FormLabel>
-              <RadioGroup
-                row
-                name="preferredRole"
-                value={formik.values.preferredRole}
-                onChange={formik.handleChange}
-              >
-                <FormControlLabel value="driver" control={<Radio />} label="Kierowca" />
-                <FormControlLabel value="passenger" control={<Radio />} label="Pasażer" />
-                <FormControlLabel value="both" control={<Radio />} label="Oba" />
+
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="subtitle2" sx={{ ml: 1, mb: 1, fontWeight: 'bold', color: '#424242' }}>Chcę być</Typography>
+              <RadioGroup row name="preferredRole" value={formik.values.preferredRole} onChange={formik.handleChange} sx={{ justifyContent: 'space-between' }}>
+                {['driver', 'passenger', 'both'].map((role) => (
+                  <FormControlLabel
+                    key={role}
+                    value={role}
+                    control={<Radio sx={{ display: 'none' }} />}
+                    label={
+                      <Box sx={{
+                        px: 3, py: 1.5, borderRadius: '20px',
+                        bgcolor: formik.values.preferredRole === role ? '#c62828' : 'white',
+                        color: formik.values.preferredRole === role ? 'white' : '#757575',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                      }}>
+                        {role === 'driver' ? 'Kierowcą' : role === 'passenger' ? 'Pasażerem' : 'Oba'}
+                      </Box>
+                    }
+                    sx={{ m: 0 }}
+                  />
+                ))}
               </RadioGroup>
-            </FormControl>
+            </Box>
+
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ 
-                mt: 3, 
-                mb: 2,
-                height: 46,
-                background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-                boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)',
-                }
+              sx={{
+                bgcolor: '#c62828',
+                borderRadius: '30px',
+                py: 1.5,
+                mt: 1,
+                fontSize: '1.rem',
+                textTransform: 'none',
+                fontWeight: 'bold',
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#b71c1c', boxShadow: 'none' }
               }}
             >
               Zarejestruj się
             </Button>
-            <Box sx={{ 
-              textAlign: 'center',
-              mt: 2
-            }}>
-              <Link 
-                href="/login" 
-                variant="body2"
-                sx={{
-                  textDecoration: 'none',
-                  color: 'primary.main',
-                  '&:hover': {
-                    color: 'primary.dark',
-                    textDecoration: 'underline',
-                  }
-                }}
-              >
-                Masz już konto? Zaloguj się
-              </Link>
-            </Box>
           </Box>
         </Paper>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };

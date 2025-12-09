@@ -1,5 +1,5 @@
 """
-Skrypt do sprawdzania połączenia z PostgreSQL
+Skrypt do sprawdzania polaczenia z PostgreSQL
 Uruchom: python check_db_connection.py
 """
 import os
@@ -22,7 +22,7 @@ try:
     db_host = os.getenv('DB_HOST', 'localhost')
     db_port = os.getenv('DB_PORT', '5432')
     
-    print(f"Próba połączenia z PostgreSQL...")
+    print(f"Proba polaczenia z PostgreSQL...")
     print(f"Host: {db_host}:{db_port}")
     print(f"Database: {db_name}")
     print(f"User: {db_user}")

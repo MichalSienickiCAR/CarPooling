@@ -26,27 +26,26 @@ class UserCreateView(generics.CreateAPIView):
         return user
 
 
+from rest_framework.parsers import MultiPartParser, FormParser
+
 class UserProfileView(APIView):
     """Endpoint do pobierania i aktualizacji profilu zalogowanego użytkownika"""
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     
     def get(self, request):
         """Pobiera profil użytkownika"""
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile)
-        return Response({
-            'preferred_role': profile.preferred_role,
-            'username': request.user.username,
-            'email': request.user.email,
-        })
+        return Response(serializer.data)
     
     def patch(self, request):
-        """Aktualizuje preferowaną rolę użytkownika"""
+        """Aktualizuje profil (dane osobowe, rola, avatar)"""
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            logger.info(f"User {request.user.username} updated preferred_role to {profile.preferred_role}")
+            logger.info(f"User {request.user.username} updated profile.")
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
