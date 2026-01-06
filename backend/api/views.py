@@ -777,10 +777,40 @@ class WalletView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Pobiera portfel użytkownika"""
+        """Pobiera portfel użytkownika z informacją o oczekujących środkach (dla kierowcy)"""
         wallet, created = Wallet.objects.get_or_create(user=request.user)
         serializer = WalletSerializer(wallet)
-        return Response(serializer.data)
+        data = serializer.data
+        
+        # Dla kierowcy: oblicz oczekujące środki (z opłaconych rezerwacji, które jeszcze nie zostały wypłacone)
+        pending_amount = Decimal('0')
+        trips_with_pending = []
+        
+        # Znajdź wszystkie przejazdy kierowcy z opłaconymi rezerwacjami, które jeszcze się nie odbyły
+        driver_trips = Trip.objects.filter(
+            driver=request.user,
+            date__gte=date.today()
+        ).prefetch_related('bookings')
+        
+        for trip in driver_trips:
+            paid_bookings = trip.bookings.filter(status='paid')
+            if paid_bookings.exists():
+                trip_total = sum(booking.seats * trip.price_per_seat for booking in paid_bookings)
+                # Prowizja platformy: 5%, więc kierowca otrzyma 95%
+                driver_amount = trip_total * Decimal('0.95')
+                pending_amount += driver_amount
+                trips_with_pending.append({
+                    'trip_id': trip.id,
+                    'route': f"{trip.start_location} → {trip.end_location}",
+                    'date': trip.date.isoformat(),
+                    'amount': str(driver_amount),
+                    'bookings_count': paid_bookings.count()
+                })
+        
+        data['pending_amount'] = str(pending_amount)
+        data['pending_trips'] = trips_with_pending
+        
+        return Response(data)
     
     def post(self, request):
         """Zasila portfel (symulacja BLIK)"""

@@ -335,24 +335,41 @@ export const MyTrips: React.FC = () => {
                 >
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant="body1" fontWeight="bold">{p.passenger_username}</Typography>
                         <Chip
                           label={
+                            p.status === 'paid' ? 'Opłacone' :
                             p.status === 'accepted' ? 'Zaakceptowane' :
                             p.status === 'reserved' ? 'Oczekujące' :
                             'Anulowane'
                           }
                           size="small"
                           color={
-                            p.status === 'accepted' ? 'success' :
+                            p.status === 'paid' ? 'success' :
+                            p.status === 'accepted' ? 'info' :
                             p.status === 'reserved' ? 'warning' :
                             'error'
                           }
                         />
+                        {p.status === 'paid' && p.paid_at && (
+                          <Typography variant="caption" color="textSecondary">
+                            Opłacone: {new Date(p.paid_at).toLocaleString('pl-PL')}
+                          </Typography>
+                        )}
                       </Box>
                     }
-                    secondary={`${p.seats} ${p.seats === 1 ? 'miejsce' : 'miejsc'}`}
+                    secondary={
+                      <Box>
+                        <Typography variant="body2">{p.seats} {p.seats === 1 ? 'miejsce' : 'miejsc'}</Typography>
+                        {selectedTrip && (
+                          <Typography variant="body2" color="primary" fontWeight="bold">
+                            {((typeof selectedTrip.price_per_seat === 'string' ? parseFloat(selectedTrip.price_per_seat) : selectedTrip.price_per_seat) * p.seats).toFixed(2)} zł
+                            {p.status === 'paid' ? ' (opłacone)' : p.status === 'accepted' ? ' (oczekujące na płatność)' : ''}
+                          </Typography>
+                        )}
+                      </Box>
+                    }
                   />
                   {p.status === 'reserved' && (
                     <Box sx={{ display: 'flex', gap: 1 }}>

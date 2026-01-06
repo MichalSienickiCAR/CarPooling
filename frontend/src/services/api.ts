@@ -298,6 +298,14 @@ export interface Wallet {
   user: number;
   username: string;
   balance: string;
+  pending_amount?: string;
+  pending_trips?: Array<{
+    trip_id: number;
+    route: string;
+    date: string;
+    amount: string;
+    bookings_count: number;
+  }>;
   created_at: string;
   updated_at: string;
 }

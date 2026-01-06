@@ -121,7 +121,7 @@ export const DriverDashboard: React.FC = () => {
           <Box sx={{ width: { xs: '100%', md: '30%' } }}>
             <Paper
               elevation={0}
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/wallet')}
               sx={{
                 p: 4,
                 borderRadius: '30px',
@@ -136,16 +136,16 @@ export const DriverDashboard: React.FC = () => {
                 border: '2px solid transparent',
                 '&:hover': {
                   transform: 'translateY(-5px)',
-                  borderColor: '#1976d2',
-                  bgcolor: '#e3f2fd'
+                  borderColor: '#ff9800',
+                  bgcolor: '#fff3e0'
                 }
               }}
             >
-              <Avatar sx={{ width: 60, height: 60, bgcolor: '#1976d2', mb: 2 }}>
+              <Avatar sx={{ width: 60, height: 60, bgcolor: '#ff9800', mb: 2 }}>
                 <Person fontSize="large" />
               </Avatar>
-              <Typography variant="h5" fontWeight="bold" gutterBottom>Mój Profil</Typography>
-              <Typography color="textSecondary" align="center">Edytuj swoje dane, zmień zdjęcie i ustawienia konta.</Typography>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>Portfel</Typography>
+              <Typography color="textSecondary" align="center">Zarządzaj saldem, wypłatami i historią transakcji.</Typography>
             </Paper>
           </Box>
         </Stack>

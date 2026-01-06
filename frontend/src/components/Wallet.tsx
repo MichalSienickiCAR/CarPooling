@@ -22,12 +22,13 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  Stack,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { walletService, Transaction } from '../services/api';
+import { walletService, Transaction, Wallet as WalletType } from '../services/api';
 
 const Wallet: React.FC = () => {
-  const [wallet, setWallet] = useState<{ balance: string } | null>(null);
+  const [wallet, setWallet] = useState<WalletType | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
@@ -169,6 +170,42 @@ const Wallet: React.FC = () => {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Oczekujące środki (dla kierowcy) */}
+      {wallet?.pending_amount && parseFloat(wallet.pending_amount) > 0 && (
+        <Card sx={{ mb: 3, bgcolor: '#fff3e0' }}>
+          <CardContent>
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              Oczekujące środki
+            </Typography>
+            <Typography variant="h4" color="warning.main" gutterBottom>
+              {parseFloat(wallet.pending_amount).toFixed(2)} zł
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              Kwoty z opłaconych rezerwacji, które zostaną wypłacone po zakończeniu przejazdów
+            </Typography>
+            {wallet.pending_trips && wallet.pending_trips.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                  Przejazdy z oczekującymi środkami:
+                </Typography>
+                <Stack spacing={1}>
+                  {wallet.pending_trips.map((trip, index) => (
+                    <Box key={index} sx={{ p: 1.5, bgcolor: 'white', borderRadius: 2 }}>
+                      <Typography variant="body2" fontWeight="bold">
+                        {trip.route}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        {new Date(trip.date).toLocaleDateString('pl-PL')} • {trip.bookings_count} {trip.bookings_count === 1 ? 'rezerwacja' : 'rezerwacje'} • {parseFloat(trip.amount).toFixed(2)} zł
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Historia transakcji */}
       <Card>
