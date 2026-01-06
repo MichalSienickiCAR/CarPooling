@@ -13,6 +13,7 @@ import { LandingPage } from './components/LandingPage';
 import { UserProfile } from './components/UserProfile';
 import { TripDetails } from './components/TripDetails';
 import MyBookings from './components/MyBookings';
+import Wallet from './components/Wallet';
 import { ProtectedRoute } from './components/ProtectedRoute'; // Import ProtectedRoute
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
@@ -101,6 +102,7 @@ function App() {
               <Route path="/trips/add" element={<AddTrip />} />
               <Route path="/trips/mine" element={<MyTrips />} />
               <Route path="/bookings/my" element={<MyBookings />} />
+              <Route path="/wallet" element={<Wallet />} />
               <Route path="/profile" element={<UserProfile />} />
               <Route path="/trips/:id" element={<TripDetails />} />
             </Route>

@@ -87,9 +87,11 @@ class Booking(models.Model):
     STATUS_CHOICES = [
         ('reserved', 'Zarezerwowane'),
         ('accepted', 'Zaakceptowane'),
+        ('paid', 'Opłacone'),
         ('cancelled', 'Anulowane'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='reserved')
+    paid_at = models.DateTimeField(null=True, blank=True, verbose_name='Data opłacenia')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -276,3 +278,113 @@ def create_notifications_for_bookings(sender, instance, created, **kwargs):
         # Wyczyść zapisany status
         if instance.pk in _booking_old_status:
             del _booking_old_status[instance.pk]
+
+
+class Wallet(models.Model):
+    """Portfel wirtualny użytkownika"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
+    balance = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)],
+        verbose_name='Saldo'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Portfel'
+        verbose_name_plural = 'Portfele'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user.username}: {self.balance} zł"
+
+
+class Transaction(models.Model):
+    """Historia transakcji użytkownika"""
+    TRANSACTION_TYPES = [
+        ('deposit', 'Wpłata'),
+        ('payment', 'Płatność za przejazd'),
+        ('withdrawal', 'Wypłata'),
+        ('refund', 'Zwrot'),
+        ('driver_payment', 'Wypłata dla kierowcy'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES, verbose_name='Typ transakcji')
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        verbose_name='Kwota'
+    )
+    booking = models.ForeignKey(Booking, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions', verbose_name='Rezerwacja')
+    trip = models.ForeignKey(Trip, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions', verbose_name='Przejazd')
+    description = models.TextField(blank=True, verbose_name='Opis')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Transakcja'
+        verbose_name_plural = 'Transakcje'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.get_transaction_type_display()} - {self.amount} zł ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+
+@receiver(post_save, sender=User)
+def create_user_wallet(sender, instance, created, **kwargs):
+    """Automatycznie tworzy portfel przy tworzeniu użytkownika"""
+    if created:
+        Wallet.objects.get_or_create(user=instance)
+
+
+# Zadanie cykliczne do automatycznego anulowania nieopłaconych rezerwacji
+# (można uruchomić przez cron job lub celery)
+def cancel_unpaid_bookings():
+    """
+    Anuluje rezerwacje, które nie zostały opłacone do 10h przed przejazdem.
+    Zwraca środki jeśli były opłacone (nie powinno się zdarzyć, ale na wszelki wypadek).
+    """
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    
+    now = timezone.now()
+    cutoff_time = now + timedelta(hours=10)
+    
+    # Znajdź wszystkie zaakceptowane rezerwacje, które nie są opłacone
+    # i których przejazd jest w ciągu najbliższych 10h
+    unpaid_bookings = Booking.objects.filter(
+        status='accepted',
+        trip__date__lte=cutoff_time.date()
+    ).select_related('trip', 'passenger')
+    
+    cancelled_count = 0
+    for booking in unpaid_bookings:
+        trip = booking.trip
+        trip_datetime = datetime.combine(trip.date, trip.time or datetime.min.time())
+        trip_datetime = timezone.make_aware(trip_datetime)
+        
+        # Sprawdź czy minęło 10h przed przejazdem
+        if trip_datetime - now <= timedelta(hours=10):
+            # Anuluj rezerwację
+            booking.status = 'cancelled'
+            booking.save()
+            
+            # Utwórz powiadomienie dla pasażera
+            Notification.objects.create(
+                user=booking.passenger,
+                trip=trip,
+                notification_type='booking_rejected',
+                message=f"Twoja rezerwacja w przejeździe {trip.start_location} → {trip.end_location} ({trip.date}) została anulowana z powodu braku płatności."
+            )
+            
+            cancelled_count += 1
+            logger.info(f"Auto-cancelled unpaid booking {booking.id} for trip {trip.id}")
+    
+    return cancelled_count

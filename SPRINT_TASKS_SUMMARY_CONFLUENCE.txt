@@ -1,0 +1,269 @@
+Podsumowanie zaimplementowanych tasków - Sprint [Data]
+
+# Zaimplementowane Taski
+
+## Epic: Zarządzanie Rezerwacjami (PT2025NFCP-26)
+
+### PT2025NFCP-12: Rezerwacja miejsca przez pasażera
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Jako Pasażer, chcę móc zarezerwować miejsce w wybranym przejeździe, aby potwierdzić chęć dołączenia do podwózki.
+
+**Implementacja:**
+- Endpoint API: `POST /trips/{id}/create_booking/`
+- Komponent: `TripDetails.tsx` - przycisk "Rezerwuj miejsce"
+- Walidacja: sprawdzanie dostępności miejsc, czy przejazd nie jest w przeszłości
+- Status rezerwacji: "reserved" (oczekująca na akceptację kierowcy)
+
+**Pliki:**
+- Backend: `backend/api/views.py` - metoda `create_booking`
+- Frontend: `frontend/src/components/TripDetails.tsx`
+- Frontend: `frontend/src/services/api.ts` - `createBooking`
+
+---
+
+### PT2025NFCP-13: Powiadomienia dla kierowcy o rezerwacji
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Jako Kierowca, chcę otrzymywać powiadomienie (np. push lub w aplikacji), gdy pasażer zarezerwuje miejsce w moim przejeździe, aby być na bieżąco z listą pasażerów.
+
+**Implementacja:**
+- Django Signal: `post_save` na modelu `Booking` tworzy powiadomienie dla kierowcy
+- Typ powiadomienia: `booking_request`
+- Powiadomienia w aplikacji: komponent `Notifications.tsx` z ikoną dzwonka
+- Powiadomienia systemowe Windows: hook `useSystemNotifications.ts`
+- Automatyczne powiadomienia przy każdej nowej rezerwacji
+
+**Pliki:**
+- Backend: `backend/api/models.py` - signal `create_notifications_for_bookings`
+- Frontend: `frontend/src/components/Notifications.tsx`
+- Frontend: `frontend/src/hooks/useSystemNotifications.ts`
+
+---
+
+### PT2025NFCP-14: Akceptacja/odrzucenie rezerwacji przez kierowcę
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Kierowca, chcę mieć możliwość akceptacji lub odrzucenia prośby o rezerwację od pasażera, aby mieć kontrolę nad tym, kogo zabieram.
+
+**Implementacja:**
+- Endpointy API: 
+  - `POST /trips/{id}/accept_booking/` - akceptacja rezerwacji
+  - `POST /trips/{id}/reject_booking/` - odrzucenie rezerwacji
+- UI w `MyTrips.tsx`: dialog "Pasażerowie" z przyciskami:
+  - ✓ (zielony) - akceptuj rezerwację
+  - ✗ (czerwony) - odrzuć rezerwację
+- Powiadomienia dla pasażera o decyzji kierowcy
+- Automatyczne odświeżanie listy po akcji
+
+**Pliki:**
+- Backend: `backend/api/views.py` - metody `accept_booking`, `reject_booking`
+- Frontend: `frontend/src/components/MyTrips.tsx`
+- Frontend: `frontend/src/services/api.ts` - `acceptBooking`, `rejectBooking`
+
+---
+
+### PT2025NFCP-30: Ekran "Moje Rezerwacje" dla pasażera
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Jako Pasażer, chcę mieć dostęp do ekranu "Moje Rezerwacje", aby zobaczyć listę moich nadchodzących i przeszłych przejazdów.
+
+**Implementacja:**
+- Endpoint API: `GET /bookings/my/` - zwraca wszystkie rezerwacje pasażera
+- Komponent: `MyBookings.tsx` z funkcjami:
+  - Filtrowanie po statusie (Wszystkie, Zaakceptowane, Oczekujące, Anulowane)
+  - Sekcja "Nadchodzące przejazdy" dla zaakceptowanych rezerwacji na przyszłość
+  - Wyświetlanie szczegółów: trasa, data, czas, kierowca, cena
+  - Link do szczegółów przejazdu
+- Link w `PassengerDashboard` - kafelek "Moje Rezerwacje"
+
+**Pliki:**
+- Backend: `backend/api/views.py` - klasa `MyBookingsView`
+- Backend: `backend/api/serializers.py` - `BookingSerializer` z `trip_details`
+- Frontend: `frontend/src/components/MyBookings.tsx`
+- Frontend: `frontend/src/services/api.ts` - `bookingService.getMyBookings`
+
+---
+
+### PT2025NFCP-31: Anulowanie rezerwacji przez pasażera
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Jako Pasażer, chcę móc anulować moją potwierdzoną rezerwację (zgodnie z określonymi zasadami), aby zwolnić miejsce, jeśli moje plany ulegną zmianie.
+
+**Implementacja:**
+- Endpoint API: `POST /trips/{id}/cancel_booking/` - anulowanie rezerwacji przez pasażera
+- Przycisk "Anuluj rezerwację" w `MyBookings.tsx`
+- Możliwość anulowania rezerwacji w statusach: "reserved" i "accepted"
+- Potwierdzenie przed anulowaniem
+- Automatyczne odświeżanie listy po anulowaniu
+
+**Pliki:**
+- Backend: `backend/api/views.py` - metoda `cancel_booking`
+- Frontend: `frontend/src/components/MyBookings.tsx`
+- Frontend: `frontend/src/services/api.ts` - `cancelBooking`
+
+---
+
+## Epic: Ulubione i Powiadomienia (PT2025NFCP-53)
+
+### PT2025NFCP-83: Ulubione trasy dla pasażera
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Jako Pasażer, chcę móc zapisać ulubione trasy (np. Warszawa-Kraków), aby szybko wyszukiwać przejazdy na tych trasach.
+
+**Implementacja:**
+- Model bazy danych: `FavoriteRoute` (user, start_location, end_location)
+- Endpointy API: GET, POST, DELETE dla ulubionych tras
+- UI w `SearchTrips.tsx`:
+  - Przycisk "Zapisz jako ulubioną" (ikona gwiazdki) przy formularzu wyszukiwania
+  - Panel boczny z listą ulubionych tras
+  - Kliknięcie trasy automatycznie wypełnia formularz i wyszukuje przejazdy
+  - Możliwość usuwania ulubionych tras
+- Walidacja: unikalność trasy per użytkownik
+
+**Pliki:**
+- Backend: `backend/api/models.py` - model `FavoriteRoute`
+- Backend: `backend/api/views.py` - `FavoriteRouteViewSet`
+- Backend: `backend/api/serializers.py` - `FavoriteRouteSerializer`
+- Frontend: `frontend/src/components/SearchTrips.tsx`
+- Frontend: `frontend/src/services/api.ts` - `favoriteRouteService`
+
+---
+
+### PT2025NFCP-84: Powiadomienia o nowych przejazdach na ulubionych trasach
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Jako Pasażer, chcę otrzymywać powiadomienia o nowych przejazdach na moich ulubionych trasach, aby nie przegapić okazji.
+
+**Implementacja:**
+- Django Signal: `post_save` na modelu `Trip` tworzy powiadomienia dla użytkowników z pasującą ulubioną trasą
+- Typ powiadomienia: `new_trip_on_favorite_route`
+- Dopasowanie tras: case-insensitive porównanie start_location i end_location
+- Filtrowanie: tylko przyszłe przejazdy (nie powiadamia o przeszłych)
+- Powiadomienia w aplikacji i systemowe Windows
+- Kliknięcie powiadomienia przenosi do szczegółów przejazdu
+
+**Pliki:**
+- Backend: `backend/api/models.py` - signal `create_notifications_for_favorite_routes`
+- Backend: `backend/api/models.py` - model `Notification`
+- Frontend: `frontend/src/components/Notifications.tsx`
+- Frontend: `frontend/src/hooks/useSystemNotifications.ts`
+
+---
+
+### PT2025NFCP-85: Szablony przejazdów dla kierowcy
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Jako Kierowca, chcę móc zapisać szablon przejazdu (częsta trasa), aby szybko dodać przejazd bez ponownego wpisywania wszystkich danych.
+
+**Implementacja:**
+- Model bazy danych: `TripTemplate` (nazwa, trasa, miejsca, cena, godzina, punkty pośrednie)
+- Endpointy API: GET, POST, DELETE dla szablonów
+- Akcja: `create_trip` - tworzenie przejazdu z szablonu (wymaga podania daty)
+- UI w `AddTrip.tsx`:
+  - Dropdown do wyboru szablonu (automatyczne wypełnienie formularza)
+  - Przycisk "Zapisz jako szablon" z dialogiem do nadania nazwy
+  - Automatyczne wypełnianie wszystkich pól formularza z szablonu
+- Walidacja: unikalność nazwy szablonu per kierowca
+
+**Pliki:**
+- Backend: `backend/api/models.py` - model `TripTemplate`
+- Backend: `backend/api/views.py` - `TripTemplateViewSet` z akcją `create_trip`
+- Backend: `backend/api/serializers.py` - `TripTemplateSerializer`
+- Frontend: `frontend/src/components/AddTrip.tsx`
+- Frontend: `frontend/src/services/api.ts` - `tripTemplateService`
+
+---
+
+## Dodatkowe ulepszenia (poza taskami)
+
+### Powiadomienia systemowe Windows
+**Status:** ✅ Zaimplementowane
+
+**Opis:**
+Dodatkowa funkcjonalność - powiadomienia systemowe Windows (desktop notifications) dla wszystkich typów powiadomień.
+
+**Implementacja:**
+- Hook React: `useSystemNotifications.ts` - zarządzanie powiadomieniami systemowymi
+- Używa Web Notifications API przeglądarki
+- Funkcjonalności:
+  - Prośba o pozwolenie przy pierwszym użyciu
+  - Powiadomienia dla: nowych przejazdów na ulubionych trasach, nowych rezerwacji, akceptacji/odrzucenia rezerwacji
+  - Kliknięcie powiadomienia przenosi do szczegółów przejazdu
+  - Automatyczne zamykanie po 5 sekundach
+- Ustawienie w profilu użytkownika: `notifications_enabled` (włącz/wyłącz)
+
+**Pliki:**
+- Frontend: `frontend/src/hooks/useSystemNotifications.ts`
+- Frontend: `frontend/src/components/Notifications.tsx` - integracja z hookiem
+- Backend: `backend/api/models.py` - pole `notifications_enabled` w `UserProfile`
+
+---
+
+## Statystyki implementacji
+
+**Łącznie zaimplementowanych tasków:** 8
+- PT2025NFCP-12 ✅
+- PT2025NFCP-13 ✅
+- PT2025NFCP-14 ✅
+- PT2025NFCP-30 ✅
+- PT2025NFCP-31 ✅
+- PT2025NFCP-83 ✅
+- PT2025NFCP-84 ✅
+- PT2025NFCP-85 ✅
+
+**Nowe modele bazy danych:**
+- `FavoriteRoute` - ulubione trasy pasażerów
+- `TripTemplate` - szablony przejazdów kierowców
+- `Notification` - powiadomienia użytkowników
+
+**Nowe komponenty frontend:**
+- `MyBookings.tsx` - ekran rezerwacji pasażera
+- `Notifications.tsx` - komponent powiadomień
+- `useSystemNotifications.ts` - hook dla powiadomień systemowych
+
+**Nowe endpointy API:**
+- `/api/bookings/my/` - rezerwacje pasażera
+- `/api/trips/{id}/create_booking/` - tworzenie rezerwacji
+- `/api/trips/{id}/accept_booking/` - akceptacja rezerwacji
+- `/api/trips/{id}/reject_booking/` - odrzucenie rezerwacji
+- `/api/trips/{id}/cancel_booking/` - anulowanie rezerwacji
+- `/api/favorite-routes/` - zarządzanie ulubionymi trasami
+- `/api/trip-templates/` - zarządzanie szablonami przejazdów
+- `/api/notifications/` - zarządzanie powiadomieniami
+
+**Django Signals:**
+- `post_save` na `Trip` - powiadomienia o nowych przejazdach na ulubionych trasach
+- `post_save` na `Booking` - powiadomienia o rezerwacjach dla kierowcy i pasażera
+
+---
+
+## Jak używać
+
+### Dla pasażera:
+1. **Zapisz ulubioną trasę:** Wyszukaj przejazd → kliknij ikonę gwiazdki → trasa zapisana
+2. **Użyj ulubionej trasy:** Kliknij trasę w panelu bocznym → automatyczne wyszukiwanie
+3. **Zarezerwuj miejsce:** Otwórz szczegóły przejazdu → kliknij "Rezerwuj miejsce"
+4. **Zobacz rezerwacje:** Dashboard pasażera → "Moje Rezerwacje"
+5. **Anuluj rezerwację:** Moje Rezerwacje → kliknij "Anuluj rezerwację"
+
+### Dla kierowcy:
+1. **Zapisz szablon:** Dodaj przejazd → wypełnij formularz → "Zapisz jako szablon"
+2. **Użyj szablonu:** Dodaj przejazd → wybierz szablon z listy → formularz wypełniony
+3. **Zarządzaj rezerwacjami:** Moje Przejazdy → "Pasażerowie" → akceptuj/odrzuć
+4. **Otrzymuj powiadomienia:** Automatyczne powiadomienia o nowych rezerwacjach
+
+---
+
+**Data implementacji:** [Data]
+**Branch:** feature/michal-work
+**Commit:** feat: PT2025NFCP-12, PT2025NFCP-13, PT2025NFCP-14, PT2025NFCP-30, PT2025NFCP-31, PT2025NFCP-83, PT2025NFCP-84, PT2025NFCP-85
+

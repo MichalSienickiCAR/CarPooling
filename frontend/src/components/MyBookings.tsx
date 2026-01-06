@@ -26,6 +26,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { bookingService, tripService, Booking } from '../services/api';
+import { Payment, Warning } from '@mui/icons-material';
 
 const MyBookings: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +52,56 @@ const MyBookings: React.FC = () => {
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const calculateTimeUntilPaymentDeadline = (tripDate: string, tripTime?: string): { hours: number; canPay: boolean; message: string } => {
+    const date = new Date(tripDate);
+    if (tripTime) {
+      const [hours, minutes] = tripTime.split(':').map(Number);
+      date.setHours(hours, minutes, 0, 0);
+    } else {
+      date.setHours(0, 0, 0, 0);
+    }
+    
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    if (diffHours < 0) {
+      return { hours: 0, canPay: false, message: 'Przejazd już się odbył' };
+    } else if (diffHours < 10) {
+      const hoursLeft = Math.floor(diffHours);
+      const minutesLeft = Math.floor((diffHours - hoursLeft) * 60);
+      return { 
+        hours: diffHours, 
+        canPay: false, 
+        message: `Za późno na płatność (min. 10h przed). Pozostało: ${hoursLeft}h ${minutesLeft}min` 
+      };
+    } else {
+      const hoursLeft = Math.floor(diffHours - 10);
+      const minutesLeft = Math.floor(((diffHours - 10) - hoursLeft) * 60);
+      return { 
+        hours: diffHours, 
+        canPay: true, 
+        message: `Płatność możliwa do: ${hoursLeft}h ${minutesLeft}min przed przejazdem` 
+      };
+    }
+  };
+
+  const handlePay = async (booking: Booking) => {
+    if (!booking.trip_details) return;
+    
+    try {
+      await tripService.payBooking(booking.trip_details.id, booking.id);
+      enqueueSnackbar('Płatność zakończona pomyślnie!', { variant: 'success' });
+      loadBookings();
+    } catch (error: any) {
+      console.error('Error paying booking:', error);
+      enqueueSnackbar(
+        error.response?.data?.detail || 'Błąd podczas płatności',
+        { variant: 'error' }
+      );
     }
   };
 
@@ -264,6 +315,51 @@ const MyBookings: React.FC = () => {
                           </Box>
                         )}
                       </Box>
+                      
+                      {/* Informacja o płatności */}
+                      {(booking.status === 'accepted' || booking.status === 'paid') && booking.trip_details && (
+                        <Box sx={{ mt: 2, p: 1.5, bgcolor: booking.status === 'paid' ? '#e8f5e9' : '#fff3e0', borderRadius: 2 }}>
+                          {booking.status === 'paid' ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CheckCircle color="success" fontSize="small" />
+                              <Typography variant="body2" color="success.main" fontWeight="bold">
+                                Opłacone {booking.paid_at && new Date(booking.paid_at).toLocaleString('pl-PL')}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <>
+                              {(() => {
+                                const paymentInfo = calculateTimeUntilPaymentDeadline(
+                                  booking.trip_details.date,
+                                  booking.trip_details.time || undefined
+                                );
+                                return (
+                                  <Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                      <Warning color={paymentInfo.canPay ? 'warning' : 'error'} fontSize="small" />
+                                      <Typography variant="body2" color={paymentInfo.canPay ? 'warning.main' : 'error.main'} fontWeight="bold">
+                                        {paymentInfo.message}
+                                      </Typography>
+                                    </Box>
+                                    {paymentInfo.canPay && (
+                                      <Button
+                                        variant="contained"
+                                        color="primary"
+                                        size="small"
+                                        startIcon={<Payment />}
+                                        onClick={() => handlePay(booking)}
+                                        sx={{ mt: 1 }}
+                                      >
+                                        Zapłać {totalPrice.toFixed(2)} zł
+                                      </Button>
+                                    )}
+                                  </Box>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </Box>
+                      )}
                     </Box>
                   </Box>
 
@@ -272,12 +368,12 @@ const MyBookings: React.FC = () => {
                   <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                     <Button
                       variant="outlined"
-                      onClick={() => navigate(`/trip/${trip.id}`)}
+                      onClick={() => navigate(`/trips/${trip.id}`)}
                       sx={{ borderRadius: '20px' }}
                     >
                       Szczegóły
                     </Button>
-                    {booking.status !== 'cancelled' && booking.status !== 'accepted' && (
+                    {booking.status !== 'cancelled' && booking.status !== 'paid' && (
                       <Button
                         variant="outlined"
                         color="error"
@@ -286,17 +382,6 @@ const MyBookings: React.FC = () => {
                         sx={{ borderRadius: '20px' }}
                       >
                         Anuluj
-                      </Button>
-                    )}
-                    {booking.status === 'accepted' && isUpcomingTrip && (
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<Cancel />}
-                        onClick={() => handleCancelBooking(booking)}
-                        sx={{ borderRadius: '20px' }}
-                      >
-                        Anuluj rezerwację
                       </Button>
                     )}
                   </Box>

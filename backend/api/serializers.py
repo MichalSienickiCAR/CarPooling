@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification
+from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Wallet, Transaction
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -229,5 +229,53 @@ class NotificationSerializer(serializers.ModelSerializer):
                 'time': obj.trip.time,
                 'price_per_seat': str(obj.trip.price_per_seat),
                 'available_seats': obj.trip.available_seats,
+            }
+        return None
+
+
+class WalletSerializer(serializers.ModelSerializer):
+    """Serializer dla portfela użytkownika"""
+    username = serializers.ReadOnlyField(source='user.username')
+
+    class Meta:
+        model = Wallet
+        fields = ['id', 'user', 'username', 'balance', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'username', 'created_at', 'updated_at']
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    """Serializer dla transakcji"""
+    username = serializers.ReadOnlyField(source='user.username')
+    transaction_type_display = serializers.CharField(source='get_transaction_type_display', read_only=True)
+    trip_info = serializers.SerializerMethodField()
+    booking_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id', 'user', 'username', 'transaction_type', 'transaction_type_display',
+            'amount', 'booking', 'booking_info', 'trip', 'trip_info',
+            'description', 'created_at'
+        ]
+        read_only_fields = ['id', 'user', 'username', 'transaction_type_display', 'created_at']
+    
+    def get_trip_info(self, obj):
+        """Zwraca podstawowe informacje o przejeździe"""
+        if obj.trip:
+            return {
+                'id': obj.trip.id,
+                'start_location': obj.trip.start_location,
+                'end_location': obj.trip.end_location,
+                'date': obj.trip.date,
+            }
+        return None
+    
+    def get_booking_info(self, obj):
+        """Zwraca podstawowe informacje o rezerwacji"""
+        if obj.booking:
+            return {
+                'id': obj.booking.id,
+                'seats': obj.booking.seats,
+                'status': obj.booking.status,
             }
         return None

@@ -134,6 +134,19 @@ export const MyTrips: React.FC = () => {
     }
   };
 
+  const handleCompleteTrip = async (tripId: number) => {
+    if (!window.confirm('Czy na pewno zakończyć ten przejazd? Środki zostaną wypłacone do portfela kierowcy (z prowizją 5%).')) return;
+
+    try {
+      const result = await tripService.completeTrip(tripId);
+      enqueueSnackbar(result.detail || 'Przejazd zakończony. Środki wypłacone do portfela.', { variant: 'success' });
+      loadTrips();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Nie udało się zakończyć przejazdu.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
   const handleCancelTrip = async (trip: Trip) => {
     if (window.confirm("Czy na pewno anulować?")) {
       try {
@@ -250,6 +263,23 @@ export const MyTrips: React.FC = () => {
                   </Button>
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
+                    {(() => {
+                      const tripDate = new Date(trip.date);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const isPastOrToday = tripDate <= today;
+                      const hasPaidBookings = trip.bookings?.some((b: Booking) => b.status === 'paid') || false;
+                      
+                      return isPastOrToday && hasPaidBookings ? (
+                        <Button
+                          startIcon={<Check />}
+                          onClick={() => handleCompleteTrip(trip.id!)}
+                          sx={{ color: '#4caf50', textTransform: 'none', borderRadius: '20px', px: 2, border: '1px solid #4caf50', '&:hover': { background: '#f1f8f4' } }}
+                        >
+                          Zakończ przejazd
+                        </Button>
+                      ) : null;
+                    })()}
                     <IconButton onClick={() => handleOpenEdit(trip)} color="primary" sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}>
                       <Edit />
                     </IconButton>

@@ -140,6 +140,7 @@ export interface Booking {
   passenger_username: string;
   seats: number;
   status: string;
+  paid_at?: string | null;
   created_at: string;
   trip_details: TripDetails | null;
 }
@@ -264,6 +265,16 @@ export const tripService = {
     return response.data as Booking;
   },
 
+  async payBooking(tripId: number, bookingId: number) {
+    const response = await api.post(`/trips/${tripId}/pay_booking/`, { booking_id: bookingId });
+    return response.data as Booking;
+  },
+
+  async completeTrip(tripId: number) {
+    const response = await api.post(`/trips/${tripId}/complete_trip/`);
+    return response.data;
+  },
+
   async createBooking(tripId: number, seats: number = 1) {
     const response = await api.post(`/trips/${tripId}/create_booking/`, { seats });
     return response.data as Booking;
@@ -278,6 +289,58 @@ export const bookingService = {
     const url = `/bookings/my/${params}`;
     const response = await api.get(url);
     return response.data as Booking[];
+  },
+};
+
+// Wallet Service
+export interface Wallet {
+  id: number;
+  user: number;
+  username: string;
+  balance: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Transaction {
+  id: number;
+  user: number;
+  username: string;
+  transaction_type: 'deposit' | 'payment' | 'withdrawal' | 'refund' | 'driver_payment';
+  transaction_type_display: string;
+  amount: string;
+  booking?: number | null;
+  booking_info?: {
+    id: number;
+    seats: number;
+    status: string;
+  } | null;
+  trip?: number | null;
+  trip_info?: {
+    id: number;
+    start_location: string;
+    end_location: string;
+    date: string;
+  } | null;
+  description: string;
+  created_at: string;
+}
+
+export const walletService = {
+  async getWallet(): Promise<Wallet> {
+    const response = await api.get('/wallet/');
+    return response.data;
+  },
+
+  async deposit(amount: number): Promise<Wallet> {
+    const response = await api.post('/wallet/', { amount });
+    return response.data;
+  },
+
+  async getTransactions(type?: string): Promise<Transaction[]> {
+    const params = type ? `?type=${type}` : '';
+    const response = await api.get(`/transactions/${params}`);
+    return response.data;
   },
 };
 

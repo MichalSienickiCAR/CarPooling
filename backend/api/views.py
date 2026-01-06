@@ -4,10 +4,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
-from datetime import date
+from datetime import date, datetime, timedelta
 import logging
-from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer
-from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification
+from decimal import Decimal
+from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer, WalletSerializer, TransactionSerializer
+from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction
 
 logger = logging.getLogger('api')
 
@@ -303,12 +304,109 @@ class TripViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Jeśli rezerwacja była opłacona, zwróć środki
+            if booking.status == 'paid':
+                wallet, _ = Wallet.objects.get_or_create(user=request.user)
+                total_amount = booking.seats * trip.price_per_seat
+                wallet.balance += total_amount
+                wallet.save()
+                
+                # Utwórz transakcję zwrotu
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='refund',
+                    amount=total_amount,
+                    booking=booking,
+                    trip=trip,
+                    description=f'Zwrot za anulowaną rezerwację: {trip.start_location} → {trip.end_location}'
+                )
+                logger.info(f"Refund for cancelled booking {booking_id}: {total_amount} zł")
+            
             booking.status = 'cancelled'
             booking.save()
             
             logger.info(f"Booking {booking_id} cancelled by passenger {request.user.username}")
             serializer = BookingSerializer(booking)
             return Response(serializer.data)
+        except Booking.DoesNotExist:
+            return Response(
+                {'detail': 'Rezerwacja nie została znaleziona lub nie masz do niej uprawnień.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=True, methods=['post'])
+    def pay_booking(self, request, pk=None):
+        """Płaci za rezerwację (tylko pasażer - właściciel rezerwacji)"""
+        trip = self.get_object()
+        
+        booking_id = request.data.get('booking_id')
+        if not booking_id:
+            return Response(
+                {'detail': 'Brak ID rezerwacji.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            booking = Booking.objects.get(id=booking_id, trip=trip, passenger=request.user)
+            
+            # Sprawdź czy rezerwacja jest zaakceptowana
+            if booking.status != 'accepted':
+                return Response(
+                    {'detail': 'Można płacić tylko za zaakceptowane rezerwacje.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Sprawdź czy już opłacone
+            if booking.status == 'paid':
+                return Response(
+                    {'detail': 'Rezerwacja jest już opłacona.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Sprawdź czy minęło 10h przed przejazdem
+            trip_datetime = datetime.combine(trip.date, trip.time or datetime.min.time())
+            time_until_trip = trip_datetime - datetime.now()
+            hours_until_trip = time_until_trip.total_seconds() / 3600
+            
+            if hours_until_trip < 10:
+                return Response(
+                    {'detail': f'Płatność możliwa tylko do 10 godzin przed przejazdem. Pozostało {hours_until_trip:.1f} godzin.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Sprawdź saldo portfela
+            wallet, _ = Wallet.objects.get_or_create(user=request.user)
+            total_amount = booking.seats * trip.price_per_seat
+            
+            if wallet.balance < total_amount:
+                return Response(
+                    {'detail': f'Niewystarczające środki w portfelu. Wymagane: {total_amount} zł, dostępne: {wallet.balance} zł.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Wykonaj płatność
+            wallet.balance -= total_amount
+            wallet.save()
+            
+            # Zaktualizuj status rezerwacji
+            booking.status = 'paid'
+            booking.paid_at = datetime.now()
+            booking.save()
+            
+            # Utwórz transakcję płatności
+            Transaction.objects.create(
+                user=request.user,
+                transaction_type='payment',
+                amount=total_amount,
+                booking=booking,
+                trip=trip,
+                description=f'Płatność za przejazd: {trip.start_location} → {trip.end_location} ({booking.seats} miejsc)'
+            )
+            
+            logger.info(f"Payment for booking {booking_id}: {total_amount} zł by {request.user.username}")
+            serializer = BookingSerializer(booking)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
         except Booking.DoesNotExist:
             return Response(
                 {'detail': 'Rezerwacja nie została znaleziona lub nie masz do niej uprawnień.'},
@@ -334,6 +432,67 @@ class TripViewSet(viewsets.ModelViewSet):
         logger.info(f"Trip cancelled: ID={trip_id}, Route={trip_route}, Driver={request.user.username}")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['post'])
+    def complete_trip(self, request, pk=None):
+        """Oznacza przejazd jako zakończony i wypłaca środki kierowcy (z prowizją 5%)"""
+        trip = self.get_object()
+        if trip.driver != request.user:
+            return Response(
+                {'detail': 'Nie masz uprawnień do zakończenia tego przejazdu.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Sprawdź czy przejazd już się odbył (data w przeszłości lub dzisiaj)
+        if trip.date > date.today():
+            return Response(
+                {'detail': 'Nie można zakończyć przejazdu, który jeszcze się nie odbył.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Znajdź wszystkie opłacone rezerwacje
+        paid_bookings = trip.bookings.filter(status='paid')
+        
+        if not paid_bookings.exists():
+            return Response(
+                {'detail': 'Brak opłaconych rezerwacji do wypłaty.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Prowizja platformy: 5%
+        PLATFORM_FEE = Decimal('0.05')
+        driver_wallet, _ = Wallet.objects.get_or_create(user=trip.driver)
+        total_driver_amount = Decimal('0')
+        
+        for booking in paid_bookings:
+            total_payment = booking.seats * trip.price_per_seat
+            driver_amount = total_payment * (1 - PLATFORM_FEE)  # 95% dla kierowcy
+            
+            driver_wallet.balance += driver_amount
+            total_driver_amount += driver_amount
+            
+            # Utwórz transakcję wypłaty dla kierowcy
+            Transaction.objects.create(
+                user=trip.driver,
+                transaction_type='driver_payment',
+                amount=driver_amount,
+                booking=booking,
+                trip=trip,
+                description=f'Wypłata za przejazd: {trip.start_location} → {trip.end_location} ({booking.seats} miejsc, prowizja 5%)'
+            )
+        
+        driver_wallet.save()
+        
+        logger.info(
+            f"Trip {trip.id} completed: Driver {trip.driver.username} received {total_driver_amount} zł "
+            f"(from {paid_bookings.count()} paid bookings)"
+        )
+        
+        return Response({
+            'detail': f'Przejazd zakończony. Wypłacono {total_driver_amount} zł do portfela kierowcy.',
+            'amount': str(total_driver_amount),
+            'bookings_count': paid_bookings.count()
+        }, status=status.HTTP_200_OK)
+    
     @action(detail=False, methods=['get'])
     def my_trips(self, request):
         """Zwraca wszystkie przejazdy zalogowanego kierowcy (bez filtrowania po dacie)"""
@@ -611,6 +770,88 @@ class MyBookingsView(generics.ListAPIView):
         
         # Domyślnie sortujemy po dacie przejazdu (najbliższe najpierw)
         return queryset.order_by('trip__date', 'trip__time')
+
+
+class WalletView(APIView):
+    """Endpoint do zarządzania portfelem użytkownika"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Pobiera portfel użytkownika"""
+        wallet, created = Wallet.objects.get_or_create(user=request.user)
+        serializer = WalletSerializer(wallet)
+        return Response(serializer.data)
+    
+    def post(self, request):
+        """Zasila portfel (symulacja BLIK)"""
+        try:
+            amount = request.data.get('amount')
+            logger.info(f"Wallet deposit request from {request.user.username}: amount={amount}, data={request.data}")
+            
+            if not amount:
+                logger.warning(f"Wallet deposit failed: No amount provided by {request.user.username}")
+                return Response(
+                    {'detail': 'Brak kwoty do wpłaty.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                amount = Decimal(str(amount))
+                if amount <= 0:
+                    logger.warning(f"Wallet deposit failed: Invalid amount {amount} by {request.user.username}")
+                    return Response(
+                        {'detail': 'Kwota musi być większa od 0.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except (ValueError, TypeError) as e:
+                logger.error(f"Wallet deposit failed: Invalid amount format '{amount}' by {request.user.username}: {e}")
+                return Response(
+                    {'detail': 'Nieprawidłowa kwota.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            wallet, created = Wallet.objects.get_or_create(user=request.user)
+            old_balance = wallet.balance
+            wallet.balance += amount
+            wallet.save()
+            
+            # Utwórz transakcję wpłaty
+            transaction = Transaction.objects.create(
+                user=request.user,
+                transaction_type='deposit',
+                amount=amount,
+                description=f'Wpłata przez BLIK (symulacja) - {amount} zł'
+            )
+            
+            logger.info(
+                f"Wallet deposit successful: User {request.user.username}, "
+                f"Amount: {amount} zł, Balance: {old_balance} -> {wallet.balance}"
+            )
+            serializer = WalletSerializer(wallet)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Wallet deposit error for {request.user.username}: {str(e)}", exc_info=True)
+            return Response(
+                {'detail': f'Błąd podczas wpłaty: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class TransactionListView(generics.ListAPIView):
+    """Endpoint do pobierania historii transakcji użytkownika"""
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Zwraca wszystkie transakcje zalogowanego użytkownika"""
+        queryset = Transaction.objects.filter(user=self.request.user)
+        
+        # Filtrowanie po typie transakcji (opcjonalne)
+        transaction_type = self.request.query_params.get('type', None)
+        if transaction_type:
+            queryset = queryset.filter(transaction_type=transaction_type)
+        
+        return queryset.order_by('-created_at')
     
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):

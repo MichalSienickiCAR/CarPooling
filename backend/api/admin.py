@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Trip, Booking, FavoriteRoute, TripTemplate, Notification
+from .models import Trip, Booking, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction
 
 
 @admin.register(Trip)
@@ -35,4 +35,20 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'notification_type', 'read', 'created_at']
     list_filter = ['read', 'notification_type', 'created_at']
     search_fields = ['user__username', 'message']
+    readonly_fields = ['created_at']
+
+
+@admin.register(Wallet)
+class WalletAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'balance', 'created_at', 'updated_at']
+    list_filter = ['created_at', 'updated_at']
+    search_fields = ['user__username']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'transaction_type', 'amount', 'created_at']
+    list_filter = ['transaction_type', 'created_at']
+    search_fields = ['user__username', 'description']
     readonly_fields = ['created_at']
