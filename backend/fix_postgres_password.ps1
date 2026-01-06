@@ -89,3 +89,9 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "`nSprawdz polaczenie:" -ForegroundColor Cyan
 Write-Host "  python check_db_connection.py" -ForegroundColor Yellow
 
+
+
+
+
+
+

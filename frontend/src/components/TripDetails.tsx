@@ -44,9 +44,21 @@ export const TripDetails: React.FC = () => {
         navigate('/login');
     };
 
-    const handleBook = () => {
-        enqueueSnackbar('Funkcja rezerwacji wkrótce dostępna!', { variant: 'info' });
-        // Tu będzie logika rezerwacji (np. bookingService.createBooking(trip.id))
+    const handleBook = async () => {
+        if (!trip?.id) return;
+        
+        try {
+            await tripService.createBooking(trip.id, 1);
+            enqueueSnackbar('Rezerwacja została utworzona! Kierowca otrzyma powiadomienie.', { variant: 'success' });
+            // Odśwież dane przejazdu, żeby zobaczyć aktualną liczbę dostępnych miejsc
+            const updatedTrip = await tripService.getTrip(trip.id);
+            setTrip(updatedTrip);
+            // Przekieruj do strony z moimi rezerwacjami (można dodać później)
+            // navigate('/my-bookings');
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.detail || 'Nie udało się utworzyć rezerwacji.';
+            enqueueSnackbar(errorMessage, { variant: 'error' });
+        }
     };
 
     if (loading) {
@@ -68,7 +80,7 @@ export const TripDetails: React.FC = () => {
     const { driver_profile, driver_username } = trip;
     const driverName = driver_profile?.first_name
         ? `${driver_profile.first_name} ${driver_profile.last_name || ''}`
-        : driver_username;
+        : driver_username || 'Nieznany kierowca';
 
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>

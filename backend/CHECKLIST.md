@@ -2,6 +2,7 @@
 
 ## Task: PT2025NFCP-39 - Przygotowanie architektury aplikacji (Django start project)
 
+
 ### ✅ Wykonane
 
 - [x] **Projekt Django utworzony**

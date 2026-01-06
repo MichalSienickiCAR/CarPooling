@@ -20,6 +20,35 @@ carpooling/
 - `backend/` - Django REST API z PostgreSQL
 - `frontend/` - React TypeScript aplikacja z Material-UI
 
+## Pobieranie projektu
+
+### 1. Sklonuj repozytorium
+
+```bash
+git clone https://devtools.wi.pb.edu.pl/bitbucket/projects/CAR/repos/carpooling.git
+cd carpooling
+```
+
+### 2. Utwórz własny branch do pracy
+
+```bash
+# Sprawdź dostępne branche
+git branch -a
+
+# Utwórz nowy branch (np. feature/twoje-imie lub feature/PT2025NFCP-XX-opis)
+git checkout -b feature/twoje-imie
+
+# Lub przełącz się na istniejący branch
+git checkout feature/nazwa-brancha
+```
+
+### 3. Pobierz najnowsze zmiany (jeśli branch już istnieje)
+
+```bash
+git fetch origin
+git pull origin feature/nazwa-brancha
+```
+
 ## Wymagania
 
 ### Backend
@@ -40,16 +69,25 @@ carpooling/
 cd backend
 ```
 
-2. Aktywuj virtual environment:
+2. **Utwórz virtual environment** (jeśli jeszcze nie istnieje):
 ```bash
 # Windows
-venv\Scripts\activate
+python -m venv ..\venv
 
 # Linux/Mac
-source venv/bin/activate
+python3 -m venv ../venv
 ```
 
-3. Zainstaluj zależności (jeśli jeszcze nie są zainstalowane):
+3. **Aktywuj virtual environment:**
+```bash
+# Windows
+..\venv\Scripts\activate
+
+# Linux/Mac
+source ../venv/bin/activate
+```
+
+4. **Zainstaluj zależności:**
 ```bash
 pip install -r requirements.txt
 ```
@@ -168,6 +206,25 @@ npm start
 
 Frontend będzie dostępny pod adresem: `http://localhost:3000`
 
+## Szybki start dla nowych członków zespołu
+
+Jeśli dopiero pobierasz projekt, wykonaj następujące kroki w kolejności:
+
+1. **Sklonuj repozytorium** (patrz sekcja "Pobieranie projektu" powyżej)
+2. **Zainstaluj PostgreSQL** i utwórz lokalną bazę danych
+3. **Utwórz plik `.env`** w katalogu `backend/` z konfiguracją bazy danych
+4. **Utwórz virtual environment** i zainstaluj zależności Pythona
+5. **Wykonaj migracje** Django (`python manage.py migrate`)
+6. **Zainstaluj zależności frontendowe** (`npm install` w katalogu `frontend/`)
+7. **Uruchom backend** (`python manage.py runserver` w katalogu `backend/`)
+8. **Uruchom frontend** (`npm start` w katalogu `frontend/`)
+
+**Ważne:**
+- Każdy członek zespołu musi mieć **własną lokalną bazę PostgreSQL** i **własny plik `.env`**
+- Plik `.env` **nie jest** w repozytorium (jest w `.gitignore`)
+- Virtual environment (`venv/`) **nie jest** w repozytorium - każdy tworzy własny
+- Pracuj tylko na **własnym branchu**, nie pushuj na `main`
+
 ## API Endpoints
 
 ### Autentykacja
@@ -191,29 +248,49 @@ Frontend będzie dostępny pod adresem: `http://localhost:3000`
 
 ## Praca z Git
 
-### Twój branch do pracy
-Aktualnie pracujesz na branchu: `feature/michal-work`
+### Tworzenie i przełączanie branchy
 
-### Pobieranie najnowszych zmian
-Najpierw sprawdź, który branch jest najnowszy:
 ```bash
-git fetch origin
-git for-each-ref --sort=-committerdate refs/remotes/origin --format='%(refname:short) - %(committerdate:short)'
+# Sprawdź dostępne branche
+git branch -a
+
+# Utwórz nowy branch (np. feature/PT2025NFCP-XX-opis)
+git checkout -b feature/nazwa-brancha
+
+# Przełącz się na istniejący branch
+git checkout feature/nazwa-brancha
 ```
 
-Następnie pobierz najnowsze zmiany z najnowszego brancha (obecnie: `feature/PT2025NFCP-WyszukiwaniePrzejazdow`):
+### Pobieranie najnowszych zmian
+
 ```bash
-git pull origin feature/PT2025NFCP-WyszukiwaniePrzejazdow
+# Pobierz informacje o wszystkich branchach
+git fetch origin
+
+# Sprawdź, który branch jest najnowszy
+git for-each-ref --sort=-committerdate refs/remotes/origin --format='%(refname:short) - %(committerdate:short)'
+
+# Pobierz zmiany z konkretnego brancha
+git pull origin feature/nazwa-brancha
 ```
 
 ### Commity i push
+
 ```bash
+# Dodaj zmiany
 git add .
-git commit -m "Opis zmian"
-git push origin feature/michal-work
+
+# Zrób commit (używaj formatu: "PT2025NFCP-XX: Opis zmian")
+git commit -m "PT2025NFCP-XX: Opis zmian"
+
+# Wyślij zmiany na swój branch
+git push origin feature/nazwa-twojego-brancha
 ```
 
-**WAŻNE:** Nie pushuj niczego na branch `main` - pracuj tylko na swoim branchu!
+**WAŻNE:** 
+- Nie pushuj niczego na branch `main` - pracuj tylko na swoim branchu!
+- Używaj opisowych commitów z numerem taska (np. `PT2025NFCP-XX`)
+- Przed rozpoczęciem pracy zawsze pobierz najnowsze zmiany z głównego brancha
 
 ## Dokumentacja
 

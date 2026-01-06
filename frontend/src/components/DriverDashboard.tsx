@@ -8,7 +8,7 @@ import {
   Stack,
   Avatar,
 } from '@mui/material';
-import { Add, ListAlt, Logout, ArrowBack } from '@mui/icons-material';
+import { Add, ListAlt, Logout, ArrowBack, Person } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 
@@ -31,7 +31,10 @@ export const DriverDashboard: React.FC = () => {
         >
           Sheero
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, mr: 4 }}>
+        <Box sx={{ display: 'flex', gap: 2, mr: 4, alignItems: 'center' }}>
+          <Button color="inherit" onClick={() => navigate('/profile')} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
+            Profil
+          </Button>
           <Button color="inherit" onClick={() => navigate('/dashboard')} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
             Wróć
           </Button>
@@ -53,7 +56,7 @@ export const DriverDashboard: React.FC = () => {
           justifyContent="center"
           alignItems="stretch"
         >
-          <Box sx={{ width: { xs: '100%', md: '45%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
             <Paper
               elevation={0}
               onClick={() => navigate('/trips/add')}
@@ -84,7 +87,7 @@ export const DriverDashboard: React.FC = () => {
             </Paper>
           </Box>
 
-          <Box sx={{ width: { xs: '100%', md: '45%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
             <Paper
               elevation={0}
               onClick={() => navigate('/trips/mine')}
@@ -114,8 +117,40 @@ export const DriverDashboard: React.FC = () => {
               <Typography color="textSecondary" align="center">Historia, edycja i zarządzanie aktywnymi ogłoszeniami.</Typography>
             </Paper>
           </Box>
+
+          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
+            <Paper
+              elevation={0}
+              onClick={() => navigate('/profile')}
+              sx={{
+                p: 4,
+                borderRadius: '30px',
+                bgcolor: '#f5f5f5',
+                cursor: 'pointer',
+                transition: 'all 0.3s',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid transparent',
+                '&:hover': {
+                  transform: 'translateY(-5px)',
+                  borderColor: '#1976d2',
+                  bgcolor: '#e3f2fd'
+                }
+              }}
+            >
+              <Avatar sx={{ width: 60, height: 60, bgcolor: '#1976d2', mb: 2 }}>
+                <Person fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>Mój Profil</Typography>
+              <Typography color="textSecondary" align="center">Edytuj swoje dane, zmień zdjęcie i ustawienia konta.</Typography>
+            </Paper>
+          </Box>
         </Stack>
       </Container>
     </Box>
   );
 };
+

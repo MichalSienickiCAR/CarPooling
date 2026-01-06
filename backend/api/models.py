@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.utils import timezone
+from datetime import date
 
 
 class UserProfile(models.Model):
@@ -22,6 +24,7 @@ class UserProfile(models.Model):
     )
     phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name='Numer telefonu')
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name='Zdjęcie profilowe')
+    notifications_enabled = models.BooleanField(default=True, verbose_name='Powiadomienia włączone')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -95,3 +98,181 @@ class Booking(models.Model):
 
     def __str__(self):
         return f"{self.passenger} on {self.trip} ({self.status})"
+
+
+class FavoriteRoute(models.Model):
+    """Ulubione trasy użytkownika (pasażera)"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_routes')
+    start_location = models.CharField(max_length=255, verbose_name='Punkt początkowy')
+    end_location = models.CharField(max_length=255, verbose_name='Punkt docelowy')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'start_location', 'end_location')
+        ordering = ['-created_at']
+        verbose_name = 'Ulubiona trasa'
+        verbose_name_plural = 'Ulubione trasy'
+
+    def __str__(self):
+        return f"{self.user.username}: {self.start_location} → {self.end_location}"
+
+
+class TripTemplate(models.Model):
+    """Szablon przejazdu dla kierowcy (częsta trasa)"""
+    driver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trip_templates')
+    name = models.CharField(max_length=255, verbose_name='Nazwa szablonu', default='Moja trasa')
+    start_location = models.CharField(max_length=255, verbose_name='Punkt początkowy')
+    end_location = models.CharField(max_length=255, verbose_name='Punkt docelowy')
+    intermediate_stops = models.JSONField(default=list, blank=True, verbose_name='Punkty pośrednie')
+    time = models.TimeField(verbose_name='Godzina', null=True, blank=True)
+    available_seats = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name='Liczba dostępnych miejsc',
+        default=1
+    )
+    price_per_seat = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        verbose_name='Cena za miejsce',
+        default=0
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Szablon przejazdu'
+        verbose_name_plural = 'Szablony przejazdów'
+
+    def __str__(self):
+        return f"{self.driver.username}: {self.name} ({self.start_location} → {self.end_location})"
+
+
+class Notification(models.Model):
+    """Powiadomienia dla użytkowników"""
+    NOTIFICATION_TYPES = [
+        ('new_trip_on_favorite_route', 'Nowy przejazd na ulubionej trasie'),
+        ('booking_request', 'Nowa prośba o rezerwację'),
+        ('booking_accepted', 'Rezerwacja zaakceptowana'),
+        ('booking_rejected', 'Rezerwacja odrzucona'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='notifications', null=True, blank=True)
+    favorite_route = models.ForeignKey(FavoriteRoute, on_delete=models.CASCADE, related_name='notifications', null=True, blank=True)
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES, verbose_name='Typ powiadomienia')
+    message = models.TextField(verbose_name='Wiadomość')
+    read = models.BooleanField(default=False, verbose_name='Przeczytane')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Powiadomienie'
+        verbose_name_plural = 'Powiadomienia'
+        indexes = [
+            models.Index(fields=['user', 'read']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.get_notification_type_display()} ({'Przeczytane' if self.read else 'Nieprzeczytane'})"
+
+
+@receiver(post_save, sender=Trip)
+def create_notifications_for_favorite_routes(sender, instance, created, **kwargs):
+    """
+    Tworzy powiadomienia dla użytkowników, którzy mają ulubioną trasę pasującą do nowego przejazdu.
+    """
+    if not created:
+        return  # Tylko dla nowych przejazdów
+    
+    # Znajdź wszystkie ulubione trasy pasujące do tego przejazdu
+    # Używamy case-insensitive porównania dla lepszego dopasowania
+    matching_routes = FavoriteRoute.objects.filter(
+        start_location__iexact=instance.start_location,
+        end_location__iexact=instance.end_location
+    )
+    
+    # Filtruj tylko przyszłe przejazdy (nie powiadamiaj o przeszłych)
+    if instance.date < date.today():
+        return
+    
+    # Utwórz powiadomienia dla każdego użytkownika z pasującą ulubioną trasą
+    # Wyklucz kierowcę przejazdu (nie powiadamiaj go o własnym przejeździe)
+    # Sprawdź czy użytkownik ma włączone powiadomienia
+    for favorite_route in matching_routes:
+        if favorite_route.user != instance.driver:
+            profile = favorite_route.user.profile
+            if profile.notifications_enabled:
+                Notification.objects.create(
+                    user=favorite_route.user,
+                    trip=instance,
+                    favorite_route=favorite_route,
+                    notification_type='new_trip_on_favorite_route',
+                    message=f"Nowy przejazd na Twojej ulubionej trasie: {instance.start_location} → {instance.end_location} ({instance.date})"
+                )
+
+
+# Przechowuj poprzedni status przed zapisem
+_booking_old_status = {}
+
+@receiver(pre_save, sender=Booking)
+def store_old_booking_status(sender, instance, **kwargs):
+    """Zapisuje poprzedni status rezerwacji przed zapisem"""
+    if instance.pk:
+        try:
+            old_instance = Booking.objects.get(pk=instance.pk)
+            _booking_old_status[instance.pk] = old_instance.status
+        except Booking.DoesNotExist:
+            _booking_old_status[instance.pk] = None
+    # Dla nowych rezerwacji nie zapisujemy nic (będzie None w post_save)
+
+
+@receiver(post_save, sender=Booking)
+def create_notifications_for_bookings(sender, instance, created, **kwargs):
+    """
+    Tworzy powiadomienia dla rezerwacji:
+    - Dla kierowcy: nowa prośba o rezerwację
+    - Dla pasażera: akceptacja/odrzucenie rezerwacji
+    """
+    trip = instance.trip
+    driver = trip.driver
+    passenger = instance.passenger
+    
+    if created:
+        # Nowa rezerwacja - powiadom kierowcę
+        driver_profile = driver.profile
+        if driver_profile.notifications_enabled:
+            Notification.objects.create(
+                user=driver,
+                trip=trip,
+                notification_type='booking_request',
+                message=f"{passenger.username} chce zarezerwować {instance.seats} miejsce/a w przejeździe {trip.start_location} → {trip.end_location}"
+            )
+    else:
+        # Aktualizacja statusu rezerwacji - sprawdź czy status się zmienił
+        old_status = _booking_old_status.get(instance.pk)
+        
+        # Powiadom pasażera tylko jeśli status się zmienił
+        if old_status and old_status != instance.status:
+            passenger_profile = passenger.profile
+            if passenger_profile.notifications_enabled:
+                if instance.status == 'accepted':
+                    Notification.objects.create(
+                        user=passenger,
+                        trip=trip,
+                        notification_type='booking_accepted',
+                        message=f"Twoja rezerwacja w przejeździe {trip.start_location} → {trip.end_location} ({trip.date}) została zaakceptowana!"
+                    )
+                elif instance.status == 'cancelled' and old_status == 'reserved':
+                    # Rezerwacja została odrzucona przez kierowcę
+                    Notification.objects.create(
+                        user=passenger,
+                        trip=trip,
+                        notification_type='booking_rejected',
+                        message=f"Twoja rezerwacja w przejeździe {trip.start_location} → {trip.end_location} ({trip.date}) została odrzucona."
+                    )
+        
+        # Wyczyść zapisany status
+        if instance.pk in _booking_old_status:
+            del _booking_old_status[instance.pk]

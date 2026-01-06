@@ -28,7 +28,9 @@ import {
   Refresh,
   ArrowForward,
   Logout,
-  ArrowBack
+  ArrowBack,
+  Check,
+  Close
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -61,9 +63,13 @@ export const MyTrips: React.FC = () => {
     setLoading(true);
     try {
       const data = await tripService.getMyTrips();
+      console.log('Loaded trips:', data); // Debug
       setTrips(data);
     } catch (error: any) {
-      enqueueSnackbar('Nie udało się pobrać przejazdów.', { variant: 'error' });
+      console.error('Error loading trips:', error); // Debug
+      console.error('Error response:', error.response); // Debug
+      const errorMessage = error.response?.data?.detail || error.message || 'Nie udało się pobrać przejazdów.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -85,12 +91,46 @@ export const MyTrips: React.FC = () => {
   };
 
   const handleShowPassengers = async (trip: Trip) => {
+    setSelectedTrip(trip);
     setPassengersDialogOpen(true);
     try {
       const data = await tripService.getPassengers(trip.id!);
       setPassengers(data);
     } catch (error) {
       enqueueSnackbar('Błąd pobierania pasażerów', { variant: 'error' });
+    }
+  };
+
+  const handleAcceptBooking = async (booking: Booking) => {
+    if (!selectedTrip?.id) return;
+    try {
+      await tripService.acceptBooking(selectedTrip.id, booking.id);
+      enqueueSnackbar('Rezerwacja zaakceptowana!', { variant: 'success' });
+      // Odśwież listę pasażerów
+      const data = await tripService.getPassengers(selectedTrip.id);
+      setPassengers(data);
+      // Odśwież listę przejazdów
+      loadTrips();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Nie udało się zaakceptować rezerwacji.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
+  const handleRejectBooking = async (booking: Booking) => {
+    if (!selectedTrip?.id) return;
+    if (!window.confirm(`Czy na pewno odrzucić rezerwację od ${booking.passenger_username}?`)) return;
+    try {
+      await tripService.rejectBooking(selectedTrip.id, booking.id);
+      enqueueSnackbar('Rezerwacja odrzucona.', { variant: 'info' });
+      // Odśwież listę pasażerów
+      const data = await tripService.getPassengers(selectedTrip.id);
+      setPassengers(data);
+      // Odśwież listę przejazdów
+      loadTrips();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Nie udało się odrzucić rezerwacji.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     }
   };
 
@@ -245,18 +285,73 @@ export const MyTrips: React.FC = () => {
       </Dialog>
 
       {/* Passengers Dialog */}
-      <Dialog open={passengersDialogOpen} onClose={() => setPassengersDialogOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: '30px' } }}>
-        <DialogTitle fontWeight="bold">Lista pasażerów</DialogTitle>
+      <Dialog open={passengersDialogOpen} onClose={() => setPassengersDialogOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: '30px' } }}>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Lista pasażerów</DialogTitle>
         <DialogContent>
-          <List>
-            {passengers.length === 0 ? <Typography>Brak pasażerów</Typography> : passengers.map(p => (
-              <ListItem key={p.id} divider>
-                <ListItemText primary={p.passenger_username} secondary={`Miejsc: ${p.seats}, Status: ${p.status}`} />
-              </ListItem>
-            ))}
-          </List>
+          {passengers.length === 0 ? (
+            <Typography color="textSecondary" sx={{ textAlign: 'center', py: 4 }}>Brak rezerwacji</Typography>
+          ) : (
+            <List>
+              {passengers.map(p => (
+                <ListItem
+                  key={p.id}
+                  divider
+                  sx={{
+                    bgcolor: p.status === 'accepted' ? '#e8f5e9' : p.status === 'reserved' ? '#fff3e0' : '#ffebee',
+                    borderRadius: '15px',
+                    mb: 1,
+                    border: '1px solid #e0e0e0'
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body1" fontWeight="bold">{p.passenger_username}</Typography>
+                        <Chip
+                          label={
+                            p.status === 'accepted' ? 'Zaakceptowane' :
+                            p.status === 'reserved' ? 'Oczekujące' :
+                            'Anulowane'
+                          }
+                          size="small"
+                          color={
+                            p.status === 'accepted' ? 'success' :
+                            p.status === 'reserved' ? 'warning' :
+                            'error'
+                          }
+                        />
+                      </Box>
+                    }
+                    secondary={`${p.seats} ${p.seats === 1 ? 'miejsce' : 'miejsc'}`}
+                  />
+                  {p.status === 'reserved' && (
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <IconButton
+                        onClick={() => handleAcceptBooking(p)}
+                        color="success"
+                        sx={{ bgcolor: '#e8f5e9', '&:hover': { bgcolor: '#c8e6c9' } }}
+                        title="Zaakceptuj"
+                      >
+                        <Check />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => handleRejectBooking(p)}
+                        color="error"
+                        sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}
+                        title="Odrzuć"
+                      >
+                        <Close />
+                      </IconButton>
+                    </Box>
+                  )}
+                </ListItem>
+              ))}
+            </List>
+          )}
         </DialogContent>
-        <DialogActions><Button onClick={() => setPassengersDialogOpen(false)}>Zamknij</Button></DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPassengersDialogOpen(false)} sx={{ borderRadius: '20px' }}>Zamknij</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

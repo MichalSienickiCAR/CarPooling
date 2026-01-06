@@ -34,6 +34,7 @@ export interface UserProfile {
   last_name?: string;
   phone_number?: string;
   avatar?: string | null;
+  notifications_enabled?: boolean;
 }
 
 export const authService = {
@@ -117,12 +118,67 @@ export interface Trip {
   bookings?: Booking[];
 }
 
+export interface TripDetails {
+  id: number;
+  start_location: string;
+  end_location: string;
+  date: string;
+  time: string | null;
+  price_per_seat: string;
+  driver_username: string;
+  driver_profile: {
+    username: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar: string | null;
+  } | null;
+}
+
 export interface Booking {
   id: number;
   passenger: number;
   passenger_username: string;
   seats: number;
   status: string;
+  created_at: string;
+  trip_details: TripDetails | null;
+}
+
+export interface FavoriteRoute {
+  id?: number;
+  start_location: string;
+  end_location: string;
+  created_at?: string;
+}
+
+export interface TripTemplate {
+  id?: number;
+  name: string;
+  start_location: string;
+  end_location: string;
+  intermediate_stops: string[];
+  time?: string;
+  available_seats: number;
+  price_per_seat: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Notification {
+  id: number;
+  trip?: number;
+  trip_info?: {
+    id: number;
+    start_location: string;
+    end_location: string;
+    date: string;
+    time: string;
+    price_per_seat: string;
+    available_seats: number;
+  };
+  notification_type: string;
+  message: string;
+  read: boolean;
   created_at: string;
 }
 
@@ -137,9 +193,17 @@ export interface TripFormData {
 }
 
 export const tripService = {
-  async createTrip(tripData: TripFormData) {
-    const response = await api.post('/trips/', tripData);
-    return response.data;
+  async createTrip(tripData: TripFormData): Promise<Trip> {
+    console.log('Sending trip data to API:', tripData); // Debug
+    try {
+      const response = await api.post('/trips/', tripData);
+      console.log('Trip created successfully, response:', response.data); // Debug
+      return response.data;
+    } catch (error: any) {
+      console.error('Error in createTrip:', error); // Debug
+      console.error('Error response data:', error.response?.data); // Debug
+      throw error;
+    }
   },
 
   async getTrips() {
@@ -153,8 +217,16 @@ export const tripService = {
   },
 
   async getMyTrips() {
-    const response = await api.get('/trips/my_trips/');
-    return response.data;
+    try {
+      console.log('Fetching my trips...'); // Debug
+      const response = await api.get('/trips/my_trips/');
+      console.log('My trips response:', response.data); // Debug
+      return response.data;
+    } catch (error: any) {
+      console.error('Error in getMyTrips:', error); // Debug
+      console.error('Error response:', error.response); // Debug
+      throw error;
+    }
   },
 
   async searchTrips(queryParams: string) {
@@ -175,5 +247,99 @@ export const tripService = {
   async getPassengers(tripId: number) {
     const response = await api.get(`/trips/${tripId}/passengers/`);
     return response.data as Booking[];
+  },
+
+  async acceptBooking(tripId: number, bookingId: number) {
+    const response = await api.post(`/trips/${tripId}/accept_booking/`, { booking_id: bookingId });
+    return response.data as Booking;
+  },
+
+  async rejectBooking(tripId: number, bookingId: number) {
+    const response = await api.post(`/trips/${tripId}/reject_booking/`, { booking_id: bookingId });
+    return response.data as Booking;
+  },
+
+  async cancelBooking(tripId: number, bookingId: number) {
+    const response = await api.post(`/trips/${tripId}/cancel_booking/`, { booking_id: bookingId });
+    return response.data as Booking;
+  },
+
+  async createBooking(tripId: number, seats: number = 1) {
+    const response = await api.post(`/trips/${tripId}/create_booking/`, { seats });
+    return response.data as Booking;
+  },
+};
+
+// Booking Service
+export const bookingService = {
+  async getMyBookings(status?: string) {
+    const params = status ? `?status=${status}` : '';
+    // Używamy końcowego slasha zgodnie z Django REST framework
+    const url = `/bookings/my/${params}`;
+    const response = await api.get(url);
+    return response.data as Booking[];
+  },
+};
+
+export const favoriteRouteService = {
+  async getFavoriteRoutes(): Promise<FavoriteRoute[]> {
+    const response = await api.get('/favorite-routes/');
+    return response.data;
+  },
+
+  async createFavoriteRoute(route: { start_location: string; end_location: string }): Promise<FavoriteRoute> {
+    const response = await api.post('/favorite-routes/', route);
+    return response.data;
+  },
+
+  async deleteFavoriteRoute(routeId: number): Promise<void> {
+    await api.delete(`/favorite-routes/${routeId}/`);
+  },
+};
+
+export const tripTemplateService = {
+  async getTemplates(): Promise<TripTemplate[]> {
+    const response = await api.get('/trip-templates/');
+    return response.data;
+  },
+
+  async createTemplate(template: Omit<TripTemplate, 'id' | 'created_at' | 'updated_at'>): Promise<TripTemplate> {
+    const response = await api.post('/trip-templates/', template);
+    return response.data;
+  },
+
+  async updateTemplate(templateId: number, template: Partial<TripTemplate>): Promise<TripTemplate> {
+    const response = await api.patch(`/trip-templates/${templateId}/`, template);
+    return response.data;
+  },
+
+  async deleteTemplate(templateId: number): Promise<void> {
+    await api.delete(`/trip-templates/${templateId}/`);
+  },
+
+  async createTripFromTemplate(templateId: number, date: string): Promise<Trip> {
+    const response = await api.post(`/trip-templates/${templateId}/create_trip/`, { date });
+    return response.data;
+  },
+};
+
+export const notificationService = {
+  async getNotifications(read?: boolean): Promise<Notification[]> {
+    const params = read !== undefined ? `?read=${read}` : '';
+    const response = await api.get(`/notifications/${params}`);
+    return response.data;
+  },
+
+  async markAsRead(notificationId: number): Promise<void> {
+    await api.post(`/notifications/${notificationId}/mark_as_read/`);
+  },
+
+  async markAllAsRead(): Promise<void> {
+    await api.post('/notifications/mark_all_as_read/');
+  },
+
+  async getUnreadCount(): Promise<number> {
+    const response = await api.get('/notifications/unread_count/');
+    return response.data.count;
   },
 };

@@ -8,9 +8,10 @@ import {
   Avatar,
   Stack
 } from '@mui/material';
-import { Search, Logout, ArrowBack, Person } from '@mui/icons-material';
+import { Search, Logout, ArrowBack, Person, Event } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
+import { Notifications } from './Notifications';
 
 export const PassengerDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -31,7 +32,8 @@ export const PassengerDashboard: React.FC = () => {
         >
           Sheero
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, mr: 4 }}>
+            <Box sx={{ display: 'flex', gap: 2, mr: 4, alignItems: 'center' }}>
+          <Notifications />
           <Button color="inherit" onClick={() => navigate('/dashboard')} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
             Wróć
           </Button>
@@ -53,7 +55,7 @@ export const PassengerDashboard: React.FC = () => {
           justifyContent="center"
           alignItems="stretch"
         >
-          <Box sx={{ width: { xs: '100%', md: '45%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
             <Paper
               elevation={0}
               onClick={() => navigate('/search')}
@@ -84,7 +86,38 @@ export const PassengerDashboard: React.FC = () => {
             </Paper>
           </Box>
 
-          <Box sx={{ width: { xs: '100%', md: '45%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
+            <Paper
+              elevation={0}
+              onClick={() => navigate('/bookings/my')}
+              sx={{
+                p: 4,
+                borderRadius: '30px',
+                bgcolor: '#f5f5f5',
+                cursor: 'pointer',
+                transition: 'all 0.3s',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid transparent',
+                '&:hover': {
+                  transform: 'translateY(-5px)',
+                  borderColor: '#4caf50',
+                  bgcolor: '#f1f8f4'
+                }
+              }}
+            >
+              <Avatar sx={{ width: 60, height: 60, bgcolor: '#4caf50', mb: 2 }}>
+                <Event fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>Moje Rezerwacje</Typography>
+              <Typography color="textSecondary" align="center">Zobacz swoje zaakceptowane rezerwacje i nadchodzące przejazdy.</Typography>
+            </Paper>
+          </Box>
+
+          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
             <Paper
               elevation={0}
               onClick={() => navigate('/profile')}
@@ -119,3 +152,4 @@ export const PassengerDashboard: React.FC = () => {
     </Box>
   );
 };
+

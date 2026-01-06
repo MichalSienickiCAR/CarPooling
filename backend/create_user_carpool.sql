@@ -10,3 +10,9 @@ CREATE DATABASE carpooling OWNER carpool;
 -- Nadaj uprawnienia
 GRANT ALL PRIVILEGES ON DATABASE carpooling TO carpool;
 
+
+
+
+
+
+

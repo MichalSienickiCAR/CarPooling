@@ -14,6 +14,8 @@ import {
     Select,
     MenuItem,
     CircularProgress,
+    Switch,
+    FormControlLabel,
 } from '@mui/material';
 import { PhotoCamera, ArrowBack, Save as SaveIcon, Logout } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +30,7 @@ const validationSchema = yup.object({
     email: yup.string().email('Nieprawidłowy email').required('Email jest wymagany'),
     phone_number: yup.string(),
     preferred_role: yup.string().oneOf(['driver', 'passenger', 'both']),
+    notifications_enabled: yup.boolean(),
 });
 
 export const UserProfile: React.FC = () => {
@@ -45,7 +48,8 @@ export const UserProfile: React.FC = () => {
             email: '',
             phone_number: '',
             preferred_role: 'both',
-            username: ''
+            username: '',
+            notifications_enabled: true,
         },
         validationSchema,
         onSubmit: async (values) => {
@@ -57,6 +61,7 @@ export const UserProfile: React.FC = () => {
                 formData.append('email', values.email);
                 formData.append('phone_number', values.phone_number);
                 formData.append('preferred_role', values.preferred_role);
+                formData.append('notifications_enabled', values.notifications_enabled.toString());
 
                 if (selectedFile) {
                     formData.append('avatar', selectedFile);
@@ -83,7 +88,8 @@ export const UserProfile: React.FC = () => {
                     email: profile.email || '',
                     phone_number: profile.phone_number || '',
                     preferred_role: profile.preferred_role,
-                    username: profile.username
+                    username: profile.username,
+                    notifications_enabled: profile.notifications_enabled ?? true,
                 });
                 if (profile.avatar) {
                     setAvatarPreview(profile.avatar);
@@ -222,6 +228,36 @@ export const UserProfile: React.FC = () => {
                                         <MenuItem value="both">Oba (Kierowca i Pasażer)</MenuItem>
                                     </Select>
                                 </FormControl>
+
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={formik.values.notifications_enabled}
+                                            onChange={(e) => formik.setFieldValue('notifications_enabled', e.target.checked)}
+                                            name="notifications_enabled"
+                                            color="primary"
+                                        />
+                                    }
+                                    label={
+                                        <Box>
+                                            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                                Powiadomienia systemowe
+                                            </Typography>
+                                            <Typography variant="caption" color="textSecondary">
+                                                Otrzymuj powiadomienia Windows o nowych przejazdach i rezerwacjach
+                                            </Typography>
+                                        </Box>
+                                    }
+                                    sx={{ 
+                                        bgcolor: 'white', 
+                                        borderRadius: '20px', 
+                                        px: 2, 
+                                        py: 1,
+                                        width: '100%',
+                                        m: 0,
+                                        alignItems: 'flex-start'
+                                    }}
+                                />
 
                                 <Button
                                     type="submit"

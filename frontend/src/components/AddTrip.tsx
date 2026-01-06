@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import {
@@ -11,11 +11,20 @@ import {
   Stack,
   IconButton,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
-import { Add, Logout, ArrowBack } from '@mui/icons-material';
-import { tripService, TripFormData, authService } from '../services/api'; // Add authService import
+import { Add, Logout, ArrowBack, Save, Bookmark } from '@mui/icons-material';
+import { tripService, TripFormData, authService, tripTemplateService, TripTemplate } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import { useEffect, useState } from 'react';
 
 const validationSchema = yup.object({
   start_location: yup.string().required('Wymagane').min(3, 'Minimum 3 znaki'),
@@ -31,6 +40,9 @@ export const AddTrip: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const [intermediateStops, setIntermediateStops] = useState<string[]>([]);
   const [currentStop, setCurrentStop] = useState('');
+  const [templates, setTemplates] = useState<TripTemplate[]>([]);
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+  const [templateName, setTemplateName] = useState('');
 
   const formik = useFormik<TripFormData>({
     initialValues: {
@@ -49,11 +61,15 @@ export const AddTrip: React.FC = () => {
           ...values,
           intermediate_stops: intermediateStops,
         };
-        await tripService.createTrip(tripData);
+        console.log('Creating trip with data:', tripData); // Debug
+        const response = await tripService.createTrip(tripData);
+        console.log('Trip created successfully:', response); // Debug
         enqueueSnackbar('Przejazd został dodany pomyślnie!', { variant: 'success' });
         navigate('/driver');
       } catch (error: any) {
-        const errorMessage = error.response?.data?.detail || 'Wystąpił błąd.';
+        console.error('Error creating trip:', error); // Debug
+        console.error('Error response:', error.response); // Debug
+        const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || 'Wystąpił błąd podczas dodawania przejazdu.';
         enqueueSnackbar(errorMessage, { variant: 'error' });
       }
     },
@@ -73,6 +89,59 @@ export const AddTrip: React.FC = () => {
   const handleLogout = () => {
     authService.logout();
     navigate('/login');
+  };
+
+  // Pobierz szablony przy załadowaniu
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const data = await tripTemplateService.getTemplates();
+        setTemplates(data);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+      }
+    };
+    loadTemplates();
+  }, []);
+
+  // Wypełnij formularz z szablonu
+  const handleUseTemplate = (template: TripTemplate) => {
+    formik.setFieldValue('start_location', template.start_location);
+    formik.setFieldValue('end_location', template.end_location);
+    formik.setFieldValue('time', template.time || '');
+    formik.setFieldValue('available_seats', template.available_seats);
+    formik.setFieldValue('price_per_seat', Number(template.price_per_seat));
+    setIntermediateStops(template.intermediate_stops || []);
+    enqueueSnackbar(`Wypełniono formularz z szablonu: ${template.name}`, { variant: 'info' });
+  };
+
+  // Zapisz jako szablon
+  const handleSaveAsTemplate = async () => {
+    if (!formik.values.start_location || !formik.values.end_location) {
+      enqueueSnackbar('Wypełnij przynajmniej miejsca wyjazdu i docelowe.', { variant: 'warning' });
+      return;
+    }
+
+    try {
+      await tripTemplateService.createTemplate({
+        name: templateName || `${formik.values.start_location} → ${formik.values.end_location}`,
+        start_location: formik.values.start_location,
+        end_location: formik.values.end_location,
+        intermediate_stops: intermediateStops,
+        time: formik.values.time,
+        available_seats: formik.values.available_seats,
+        price_per_seat: formik.values.price_per_seat,
+      });
+      enqueueSnackbar('Szablon został zapisany!', { variant: 'success' });
+      setSaveTemplateDialogOpen(false);
+      setTemplateName('');
+      // Odśwież listę szablonów
+      const data = await tripTemplateService.getTemplates();
+      setTemplates(data);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Nie udało się zapisać szablonu.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
   };
 
   const CustomInput = (props: any) => (
@@ -115,7 +184,29 @@ export const AddTrip: React.FC = () => {
 
       <Container maxWidth="md" sx={{ flexGrow: 1, pb: 8 }}>
         <Paper elevation={0} sx={{ bgcolor: '#f5f5f5', p: { xs: 3, md: 6 }, borderRadius: '40px' }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', textAlign: 'center', mb: 1 }}>Dodaj nowy przejazd</Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Dodaj nowy przejazd</Typography>
+            {templates.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Użyj szablonu</InputLabel>
+                <Select
+                  value=""
+                  label="Użyj szablonu"
+                  onChange={(e) => {
+                    const template = templates.find(t => t.id === Number(e.target.value));
+                    if (template) handleUseTemplate(template);
+                  }}
+                  sx={{ borderRadius: '20px', bgcolor: 'white' }}
+                >
+                  {templates.map((template) => (
+                    <MenuItem key={template.id} value={template.id}>
+                      {template.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Box>
           <Typography variant="body1" sx={{ textAlign: 'center', mb: 6, color: '#757575' }}>Wypełnij szczegóły trasy</Typography>
 
           <Box component="form" onSubmit={formik.handleSubmit}>
@@ -185,27 +276,79 @@ export const AddTrip: React.FC = () => {
                 />
               </Stack>
 
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                sx={{
-                  bgcolor: '#c62828',
-                  borderRadius: '30px',
-                  py: 1.5,
-                  mt: 2,
-                  fontSize: '1.1rem',
-                  textTransform: 'none',
-                  fontWeight: 'bold',
-                  boxShadow: 'none',
-                  '&:hover': { bgcolor: '#b71c1c', boxShadow: 'none' }
-                }}
-              >
-                Opublikuj przejazd
-              </Button>
+              <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                <Button
+                  onClick={() => setSaveTemplateDialogOpen(true)}
+                  variant="outlined"
+                  startIcon={<Save />}
+                  sx={{
+                    borderRadius: '30px',
+                    py: 1.5,
+                    flex: 1,
+                    textTransform: 'none',
+                    fontWeight: 'bold',
+                    borderColor: '#c62828',
+                    color: '#c62828',
+                    '&:hover': { borderColor: '#b71c1c', bgcolor: '#ffebee' }
+                  }}
+                >
+                  Zapisz jako szablon
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  sx={{
+                    bgcolor: '#c62828',
+                    borderRadius: '30px',
+                    py: 1.5,
+                    flex: 2,
+                    fontSize: '1.1rem',
+                    textTransform: 'none',
+                    fontWeight: 'bold',
+                    boxShadow: 'none',
+                    '&:hover': { bgcolor: '#b71c1c', boxShadow: 'none' }
+                  }}
+                >
+                  Opublikuj przejazd
+                </Button>
+              </Stack>
             </Stack>
           </Box>
         </Paper>
+
+        {/* Dialog zapisywania szablonu */}
+        <Dialog
+          open={saveTemplateDialogOpen}
+          onClose={() => setSaveTemplateDialogOpen(false)}
+          PaperProps={{ sx: { borderRadius: '30px', p: 2 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 'bold' }}>Zapisz jako szablon</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Nazwa szablonu"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder={`${formik.values.start_location} → ${formik.values.end_location}`}
+              sx={{ mt: 2 }}
+            />
+            <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
+              Szablon zostanie zapisany z aktualnymi danymi trasy (bez daty).
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setSaveTemplateDialogOpen(false)} sx={{ borderRadius: '20px' }}>
+              Anuluj
+            </Button>
+            <Button
+              onClick={handleSaveAsTemplate}
+              variant="contained"
+              sx={{ borderRadius: '20px', bgcolor: '#c62828', '&:hover': { bgcolor: '#b71c1c' } }}
+            >
+              Zapisz
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Box>
   );

@@ -27,13 +27,17 @@ import {
   CalendarToday,
   PersonOutline,
   Close as CloseIcon,
-  Logout
+  Logout,
+  Star,
+  StarBorder,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import { Trip, tripService, authService } from '../services/api';
+import { useEffect } from 'react';
+import { Trip, tripService, authService, favoriteRouteService, FavoriteRoute } from '../services/api';
 
 const validationSchema = yup.object({
   start_location: yup.string(),
@@ -54,6 +58,8 @@ export const SearchTrips: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [sortBy, setSortBy] = useState('price');
+  const [favoriteRoutes, setFavoriteRoutes] = useState<FavoriteRoute[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
 
   const [passengerCount, setPassengerCount] = useState(1);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -71,7 +77,7 @@ export const SearchTrips: React.FC = () => {
     initialValues: {
       start_location: '',
       end_location: '',
-      date: new Date().toISOString().split('T')[0],
+      date: '', // Puste - pokazuje przejazdy na najbliższy miesiąc
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -85,17 +91,26 @@ export const SearchTrips: React.FC = () => {
         if (values.end_location && values.end_location.trim()) {
           params.append('end_location', values.end_location.trim());
         }
+        // Wysyłamy datę tylko jeśli użytkownik ją podał (opcjonalne)
         if (values.date && values.date.trim()) {
           params.append('date', values.date.trim());
         }
+        // Domyślnie backend pokaże przejazdy na najbliższy miesiąc
 
         const data = await tripService.searchTrips(params.toString());
+        console.log('Search results from API:', data); // Debug
+        console.log('Passenger count filter:', passengerCount); // Debug
 
         const filteredBySeats = data.filter((trip: Trip) => trip.available_seats >= passengerCount);
+        console.log('After passenger count filter:', filteredBySeats); // Debug
 
         setTrips(filteredBySeats);
         if (filteredBySeats.length === 0) {
-          enqueueSnackbar('Nie znaleziono przejazdów spełniających kryteria.', { variant: 'info' });
+          if (data.length === 0) {
+            enqueueSnackbar('Nie znaleziono przejazdów spełniających kryteria.', { variant: 'info' });
+          } else {
+            enqueueSnackbar(`Znaleziono ${data.length} przejazdów, ale żaden nie ma wystarczającej liczby miejsc (szukasz ${passengerCount} miejsc).`, { variant: 'warning' });
+          }
         }
       } catch (error: any) {
         console.error('Search error:', error);
@@ -136,6 +151,71 @@ export const SearchTrips: React.FC = () => {
     const today = new Date().toISOString().split('T')[0];
     if (dateStr === today) return "Dzisiaj";
     return dateStr;
+  };
+
+  // Pobierz ulubione trasy przy załadowaniu komponentu
+  useEffect(() => {
+    const loadFavoriteRoutes = async () => {
+      try {
+        setLoadingFavorites(true);
+        const routes = await favoriteRouteService.getFavoriteRoutes();
+        setFavoriteRoutes(routes);
+      } catch (error) {
+        console.error('Error loading favorite routes:', error);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+    loadFavoriteRoutes();
+  }, []);
+
+  // Sprawdź czy aktualna trasa jest już w ulubionych
+  const isCurrentRouteFavorite = () => {
+    if (!formik.values.start_location || !formik.values.end_location) return false;
+    return favoriteRoutes.some(
+      route =>
+        route.start_location.toLowerCase().trim() === formik.values.start_location.toLowerCase().trim() &&
+        route.end_location.toLowerCase().trim() === formik.values.end_location.toLowerCase().trim()
+    );
+  };
+
+  // Zapisz aktualną trasę jako ulubioną
+  const handleSaveAsFavorite = async () => {
+    if (!formik.values.start_location || !formik.values.end_location) {
+      enqueueSnackbar('Wypełnij miejsca wyjazdu i docelowe, aby zapisać trasę.', { variant: 'warning' });
+      return;
+    }
+
+    try {
+      const newRoute = await favoriteRouteService.createFavoriteRoute({
+        start_location: formik.values.start_location.trim(),
+        end_location: formik.values.end_location.trim(),
+      });
+      setFavoriteRoutes([...favoriteRoutes, newRoute]);
+      enqueueSnackbar('Trasa została zapisana jako ulubiona!', { variant: 'success' });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || error.response?.data?.end_location?.[0] || 'Nie udało się zapisać trasy.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
+  // Usuń ulubioną trasę
+  const handleDeleteFavorite = async (routeId: number) => {
+    try {
+      await favoriteRouteService.deleteFavoriteRoute(routeId);
+      setFavoriteRoutes(favoriteRoutes.filter(route => route.id !== routeId));
+      enqueueSnackbar('Trasa została usunięta z ulubionych.', { variant: 'info' });
+    } catch (error) {
+      enqueueSnackbar('Nie udało się usunąć trasy.', { variant: 'error' });
+    }
+  };
+
+  // Użyj ulubionej trasy do wyszukiwania
+  const handleUseFavoriteRoute = (route: FavoriteRoute) => {
+    formik.setFieldValue('start_location', route.start_location);
+    formik.setFieldValue('end_location', route.end_location);
+    // Automatycznie wykonaj wyszukiwanie
+    formik.handleSubmit();
   };
 
   return (
@@ -207,7 +287,7 @@ export const SearchTrips: React.FC = () => {
               <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 1, color: '#424242', cursor: 'pointer' }}>
                 <CalendarToday fontSize="small" sx={{ pointerEvents: 'none' }} />
                 <Typography variant="body2" sx={{ whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-                  {getDisplayDate(formik.values.date)}
+                  {formik.values.date ? getDisplayDate(formik.values.date) : 'Najbliższy miesiąc'}
                 </Typography>
                 <TextField
                   type="date"
@@ -249,21 +329,35 @@ export const SearchTrips: React.FC = () => {
 
             </Box>
 
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                borderRadius: '30px',
-                bgcolor: '#c62828',
-                px: 4, py: 1,
-                textTransform: 'none',
-                fontSize: '1rem',
-                minWidth: '120px',
-                '&:hover': { bgcolor: '#b71c1c' }
-              }}
-            >
-              Szukaj
-            </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton
+                onClick={handleSaveAsFavorite}
+                disabled={!formik.values.start_location || !formik.values.end_location}
+                sx={{
+                  color: isCurrentRouteFavorite() ? '#FFD700' : '#757575',
+                  '&:hover': { color: '#FFD700' }
+                }}
+                title={isCurrentRouteFavorite() ? 'Trasa jest już w ulubionych' : 'Zapisz trasę jako ulubioną'}
+              >
+                {isCurrentRouteFavorite() ? <Star /> : <StarBorder />}
+              </IconButton>
+
+              <Button
+                type="submit"
+                variant="contained"
+                sx={{
+                  borderRadius: '30px',
+                  bgcolor: '#c62828',
+                  px: 4, py: 1,
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  minWidth: '120px',
+                  '&:hover': { bgcolor: '#b71c1c' }
+                }}
+              >
+                Szukaj
+              </Button>
+            </Box>
           </Paper>
         </Container>
       </Box>
@@ -273,6 +367,72 @@ export const SearchTrips: React.FC = () => {
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 6 }}>
           {/* Sidebar */}
           <Box sx={{ width: { xs: '100%', md: '25%' } }}>
+            {/* Ulubione trasy */}
+            <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: '20px', bgcolor: '#f5f5f5' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#000' }}>
+                  Ulubione trasy
+                </Typography>
+                <Star sx={{ color: '#FFD700', fontSize: '20px' }} />
+              </Box>
+              {loadingFavorites ? (
+                <Box display="flex" justifyContent="center" py={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : favoriteRoutes.length === 0 ? (
+                <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center', py: 2 }}>
+                  Brak ulubionych tras. Zapisz trasę klikając gwiazdkę przy wyszukiwaniu.
+                </Typography>
+              ) : (
+                <Stack spacing={1}>
+                  {favoriteRoutes.map((route) => (
+                    <Paper
+                      key={route.id}
+                      elevation={0}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '15px',
+                        bgcolor: 'white',
+                        cursor: 'pointer',
+                        border: '1px solid #e0e0e0',
+                        '&:hover': {
+                          borderColor: '#c62828',
+                          bgcolor: '#ffebee'
+                        },
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Box
+                        onClick={() => handleUseFavoriteRoute(route)}
+                        sx={{ flex: 1, minWidth: 0 }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {route.start_location}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {route.end_location}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (route.id) handleDeleteFavorite(route.id);
+                        }}
+                        sx={{ color: '#757575', '&:hover': { color: '#c62828' } }}
+                        title="Usuń z ulubionych"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Paper>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+
+            {/* Sortowanie */}
             <Typography variant="subtitle1" gutterBottom sx={{ color: '#757575', mb: 2 }}>Sortuj według</Typography>
             <RadioGroup value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
               <FormControlLabel value="time" control={<Radio color="default" size="small" />} label={<Typography variant="body2">Godziny odjazdu</Typography>} sx={{ mb: 1 }} />
