@@ -96,18 +96,35 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+"""
+Local development defaults to SQLite. You can switch to Postgres by
+setting environment variables, e.g. DB_ENGINE=postgres and related DB_* values.
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'carpooling',
-        'USER': 'carpool',
-        'PASSWORD': 'ZJ<170yuJ~{>rOx3c_Mq@b$g',
-        'HOST': 'localhost',  # lub adres serwera PostgreSQL
-        'PORT': '5432',       # domyślny port PostgreSQL
+Supported env variables:
+- DB_ENGINE: 'sqlite' (default) or 'postgres'
+- DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT (for Postgres)
+"""
+
+DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+
+if DB_ENGINE == "postgres":
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'carpooling'),
+            'USER': os.getenv('DB_USER', 'carpool'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'ZJ<170yuJ~{>rOx3c_Mq@b$g'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
