@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review
+from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review, Friendship, TrustedUser, Report
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -60,7 +60,7 @@ class DriverProfileSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    preferred_role = serializers.CharField(write_only=True, required=False)
+    preferred_role = serializers.CharField(write_only=True, required=True)
     profile = UserProfileSerializer(read_only=True)
     
     class Meta:
@@ -71,8 +71,14 @@ class UserSerializer(serializers.ModelSerializer):
             'email': {'required': True}
         }
 
+    def validate_preferred_role(self, value):
+        """Walidacja roli - tylko driver lub passenger"""
+        if value not in ['driver', 'passenger']:
+            raise serializers.ValidationError("Rola musi być 'driver' lub 'passenger'")
+        return value
+
     def create(self, validated_data):
-        preferred_role = validated_data.pop('preferred_role', 'both')
+        preferred_role = validated_data.pop('preferred_role')
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
@@ -360,3 +366,158 @@ class ReviewSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         return data
+
+
+class FriendshipSerializer(serializers.ModelSerializer):
+    requester_username = serializers.ReadOnlyField(source='requester.username')
+    receiver_username = serializers.ReadOnlyField(source='receiver.username')
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    requester_profile = serializers.SerializerMethodField()
+    receiver_profile = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Friendship
+        fields = [
+            'id', 'requester', 'requester_username', 'requester_profile',
+            'receiver', 'receiver_username', 'receiver_profile',
+            'status', 'status_display', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'requester', 'requester_username', 'receiver_username', 'status_display', 'created_at', 'updated_at']
+    
+    def get_requester_profile(self, obj):
+        try:
+            profile = obj.requester.profile
+            return {
+                'username': obj.requester.username,
+                'first_name': obj.requester.first_name or None,
+                'last_name': obj.requester.last_name or None,
+                'avatar': profile.avatar.url if profile.avatar else None,
+            }
+        except:
+            return {
+                'username': obj.requester.username,
+                'first_name': obj.requester.first_name or None,
+                'last_name': obj.requester.last_name or None,
+                'avatar': None,
+            }
+    
+    def get_receiver_profile(self, obj):
+        try:
+            profile = obj.receiver.profile
+            return {
+                'username': obj.receiver.username,
+                'first_name': obj.receiver.first_name or None,
+                'last_name': obj.receiver.last_name or None,
+                'avatar': profile.avatar.url if profile.avatar else None,
+            }
+        except:
+            return {
+                'username': obj.receiver.username,
+                'first_name': obj.receiver.first_name or None,
+                'last_name': obj.receiver.last_name or None,
+                'avatar': None,
+            }
+    
+    def validate_receiver(self, value):
+        request = self.context.get('request')
+        if request and request.user == value:
+            raise serializers.ValidationError('Nie możesz dodać samego siebie jako znajomego.')
+        return value
+
+
+class TrustedUserSerializer(serializers.ModelSerializer):
+    user_username = serializers.ReadOnlyField(source='user.username')
+    trusted_user_username = serializers.ReadOnlyField(source='trusted_user.username')
+    trusted_user_profile = serializers.SerializerMethodField()
+    trip_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TrustedUser
+        fields = [
+            'id', 'user', 'user_username', 'trusted_user', 'trusted_user_username',
+            'trusted_user_profile', 'trip', 'trip_info', 'note', 'created_at'
+        ]
+        read_only_fields = ['id', 'user', 'user_username', 'trusted_user_username', 'created_at']
+    
+    def get_trusted_user_profile(self, obj):
+        try:
+            profile = obj.trusted_user.profile
+            return {
+                'username': obj.trusted_user.username,
+                'first_name': obj.trusted_user.first_name or None,
+                'last_name': obj.trusted_user.last_name or None,
+                'avatar': profile.avatar.url if profile.avatar else None,
+                'preferred_role': profile.preferred_role,
+            }
+        except:
+            return {
+                'username': obj.trusted_user.username,
+                'first_name': obj.trusted_user.first_name or None,
+                'last_name': obj.trusted_user.last_name or None,
+                'avatar': None,
+                'preferred_role': None,
+            }
+    
+    def get_trip_info(self, obj):
+        if obj.trip:
+            return {
+                'id': obj.trip.id,
+                'start_location': obj.trip.start_location,
+                'end_location': obj.trip.end_location,
+                'date': obj.trip.date,
+            }
+        return None
+    
+    def validate_trusted_user(self, value):
+        request = self.context.get('request')
+        if request and request.user == value:
+            raise serializers.ValidationError('Nie możesz dodać samego siebie jako zaufanego.')
+        return value
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    reporter_username = serializers.ReadOnlyField(source='reporter.username')
+    reported_user_username = serializers.ReadOnlyField(source='reported_user.username')
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    trip_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Report
+        fields = [
+            'id', 'reporter', 'reporter_username', 'reported_user', 'reported_user_username',
+            'trip', 'trip_info', 'reason', 'reason_display', 'description',
+            'status', 'status_display', 'admin_notes', 'created_at', 'resolved_at'
+        ]
+        read_only_fields = [
+            'id', 'reporter', 'reporter_username', 'reported_user_username',
+            'reason_display', 'status_display', 'admin_notes', 'created_at', 'resolved_at'
+        ]
+        extra_kwargs = {
+            'reason': {'required': True},
+            'description': {'required': True},
+            'reported_user': {'required': True},
+        }
+    
+    def get_trip_info(self, obj):
+        if obj.trip:
+            return {
+                'id': obj.trip.id,
+                'start_location': obj.trip.start_location,
+                'end_location': obj.trip.end_location,
+                'date': obj.trip.date,
+            }
+        return None
+    
+    def validate_reported_user(self, value):
+        request = self.context.get('request')
+        if request and request.user == value:
+            raise serializers.ValidationError('Nie możesz zgłosić samego siebie.')
+        return value
+    
+    def validate_description(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError('Opis zgłoszenia jest wymagany.')
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError('Opis musi zawierać co najmniej 10 znaków.')
+        return value.strip()

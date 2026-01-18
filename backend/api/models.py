@@ -8,19 +8,17 @@ from datetime import date
 
 
 class UserProfile(models.Model):
-	"""Profil użytkownika z preferowaną rolą"""
+	"""Profil użytkownika z rolą (kierowca lub pasażer)"""
 	ROLE_CHOICES = [
 		('driver', 'Kierowca'),
 		('passenger', 'Pasażer'),
-		('both', 'Oba'),
 	]
     
 	user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
 	preferred_role = models.CharField(
 		max_length=20,
 		choices=ROLE_CHOICES,
-		default='both',
-		verbose_name='Preferowana rola'
+		verbose_name='Rola użytkownika'
 	)
 	phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name='Numer telefonu')
 	avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name='Zdjęcie profilowe')
@@ -367,3 +365,94 @@ class Review(models.Model):
 
 	def __str__(self):
 		return f"{self.reviewer.username} → {self.reviewed_user.username}: {self.rating}/5 ({self.trip})"
+
+
+class Friendship(models.Model):
+	"""Znajomość między dwoma użytkownikami"""
+	STATUS_CHOICES = [
+		('pending', 'Oczekujące'),
+		('accepted', 'Zaakceptowane'),
+		('rejected', 'Odrzucone'),
+		('blocked', 'Zablokowane'),
+	]
+	
+	requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendship_requests_sent', verbose_name='Wysyłający zaproszenie')
+	receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendship_requests_received', verbose_name='Otrzymujący zaproszenie')
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='Status')
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+	
+	class Meta:
+		verbose_name = 'Znajomość'
+		verbose_name_plural = 'Znajomości'
+		ordering = ['-created_at']
+		unique_together = ('requester', 'receiver')
+		indexes = [
+			models.Index(fields=['requester', 'status']),
+			models.Index(fields=['receiver', 'status']),
+		]
+	
+	def __str__(self):
+		return f"{self.requester.username} → {self.receiver.username}: {self.get_status_display()}"
+
+
+class TrustedUser(models.Model):
+	"""Użytkownicy oznaczeni jako zaufani po pozytywnym przejeździe"""
+	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trusted_by', verbose_name='Użytkownik, który dodał do zaufanych')
+	trusted_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trusted_user_of', verbose_name='Zaufany użytkownik')
+	trip = models.ForeignKey(Trip, on_delete=models.SET_NULL, null=True, blank=True, related_name='trusted_marks', verbose_name='Przejazd')
+	note = models.TextField(blank=True, verbose_name='Notatka')
+	created_at = models.DateTimeField(auto_now_add=True)
+	
+	class Meta:
+		verbose_name = 'Zaufany użytkownik'
+		verbose_name_plural = 'Zaufani użytkownicy'
+		ordering = ['-created_at']
+		unique_together = ('user', 'trusted_user')
+		indexes = [
+			models.Index(fields=['user', 'created_at']),
+		]
+	
+	def __str__(self):
+		return f"{self.user.username} → zaufany: {self.trusted_user.username}"
+
+
+class Report(models.Model):
+	"""Zgłoszenia niewłaściwego zachowania użytkowników"""
+	REASON_CHOICES = [
+		('inappropriate_behavior', 'Niewłaściwe zachowanie'),
+		('harassment', 'Nękanie'),
+		('no_show', 'Nie pojawienie się'),
+		('dangerous_driving', 'Niebezpieczna jazda'),
+		('fraud', 'Oszustwo'),
+		('other', 'Inne'),
+	]
+	
+	STATUS_CHOICES = [
+		('pending', 'Oczekujące'),
+		('under_review', 'W trakcie weryfikacji'),
+		('resolved', 'Rozwiązane'),
+		('dismissed', 'Odrzucone'),
+	]
+	
+	reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_made', verbose_name='Zgłaszający')
+	reported_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_received', verbose_name='Zgłaszany użytkownik')
+	trip = models.ForeignKey(Trip, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports', verbose_name='Przejazd')
+	reason = models.CharField(max_length=50, choices=REASON_CHOICES, verbose_name='Powód')
+	description = models.TextField(verbose_name='Opis')
+	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='Status')
+	admin_notes = models.TextField(blank=True, verbose_name='Notatki administratora')
+	created_at = models.DateTimeField(auto_now_add=True)
+	resolved_at = models.DateTimeField(null=True, blank=True, verbose_name='Data rozwiązania')
+	
+	class Meta:
+		verbose_name = 'Zgłoszenie'
+		verbose_name_plural = 'Zgłoszenia'
+		ordering = ['-created_at']
+		indexes = [
+			models.Index(fields=['status', 'created_at']),
+			models.Index(fields=['reported_user', 'created_at']),
+		]
+	
+	def __str__(self):
+		return f"{self.reporter.username} zgłasza {self.reported_user.username}: {self.get_reason_display()} ({self.get_status_display()})"

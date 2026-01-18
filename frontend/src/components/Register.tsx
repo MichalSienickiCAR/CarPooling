@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import {
@@ -10,8 +10,12 @@ import {
   Link,
   Paper,
   Avatar,
+  ToggleButton,
+  ToggleButtonGroup,
+  Stack,
+  Chip,
 } from '@mui/material';
-import { PersonAddOutlined } from '@mui/icons-material';
+import { PersonAddOutlined, DirectionsCar, PersonOutline } from '@mui/icons-material';
 import { authService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -19,20 +23,24 @@ import { useSnackbar } from 'notistack';
 const validationSchema = yup.object({
   username: yup
     .string()
-    .min(3, 'Username should be of minimum 3 characters length')
-    .required('Username is required'),
+    .min(3, 'Nazwa użytkownika powinna mieć minimum 3 znaki')
+    .required('Nazwa użytkownika jest wymagana'),
   email: yup
     .string()
-    .email('Enter a valid email')
-    .required('Email is required'),
+    .email('Wprowadź poprawny adres email')
+    .required('Email jest wymagany'),
   password: yup
     .string()
-    .min(8, 'Password should be of minimum 8 characters length')
-    .required('Password is required'),
+    .min(8, 'Hasło powinno mieć minimum 8 znaków')
+    .required('Hasło jest wymagane'),
   confirmPassword: yup
     .string()
-    .oneOf([yup.ref('password')], 'Passwords must match')
-    .required('Confirm password is required'),
+    .oneOf([yup.ref('password')], 'Hasła muszą być takie same')
+    .required('Potwierdzenie hasła jest wymagane'),
+  role: yup
+    .string()
+    .oneOf(['driver', 'passenger'], 'Musisz wybrać rolę')
+    .required('Wybór roli jest wymagany'),
 });
 
 export const Register: React.FC = () => {
@@ -45,11 +53,17 @@ export const Register: React.FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
+      role: '' as 'driver' | 'passenger' | '',
     },
     validationSchema: validationSchema,
     onSubmit: async (values) => {
       try {
-        await authService.register(values.username, values.email, values.password);
+        await authService.register(
+          values.username, 
+          values.email, 
+          values.password, 
+          values.role as 'driver' | 'passenger'
+        );
         enqueueSnackbar('Rejestracja zakończona pomyślnie! Możesz się teraz zalogować.', { 
           variant: 'success',
         });
@@ -63,8 +77,17 @@ export const Register: React.FC = () => {
     },
   });
 
+  const handleRoleChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newRole: 'driver' | 'passenger' | null,
+  ) => {
+    if (newRole !== null) {
+      formik.setFieldValue('role', newRole);
+    }
+  };
+
   return (
-    <Container component="main" maxWidth="xs">
+    <Container component="main" maxWidth="sm">
       <Box
         sx={{
           marginTop: 8,
@@ -74,104 +97,206 @@ export const Register: React.FC = () => {
         }}
       >
         <Paper
-          elevation={6}
+          elevation={0}
           sx={{
             padding: 4,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             width: '100%',
-            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
-            boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)',
+            background: '#ffffff',
+            border: '1px solid #e0e0e0',
+            borderRadius: '20px',
           }}
         >
           <Avatar sx={{ 
             m: 1, 
-            bgcolor: 'primary.main',
-            width: 56,
-            height: 56,
+            bgcolor: '#00aff5',
+            width: 64,
+            height: 64,
           }}>
             <PersonAddOutlined fontSize="large" />
           </Avatar>
           <Typography 
             component="h1" 
-            variant="h5"
+            variant="h4"
             sx={{ 
-              mb: 3,
-              fontWeight: 600,
-              background: 'linear-gradient(45deg, #1976d2, #2196f3)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              color: 'transparent',
+              mb: 1,
+              fontWeight: 700,
+              color: '#1a1a1a',
             }}
           >
-            Dołącz do nas
+            Dołącz do Sheero
           </Typography>
-          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1 }}>
+          <Typography 
+            variant="body1"
+            sx={{ 
+              mb: 4,
+              color: '#666',
+              textAlign: 'center',
+            }}
+          >
+            Twórz wspólne przejazdy lub znajdź miejsce dla siebie
+          </Typography>
+
+          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1, width: '100%' }}>
+            {/* Wybór roli */}
+            <Box sx={{ mb: 3 }}>
+              <Typography 
+                variant="subtitle1" 
+                sx={{ 
+                  mb: 2, 
+                  fontWeight: 600,
+                  color: '#1a1a1a',
+                  textAlign: 'center'
+                }}
+              >
+                Wybierz swoją rolę
+              </Typography>
+              <ToggleButtonGroup
+                value={formik.values.role}
+                exclusive
+                onChange={handleRoleChange}
+                fullWidth
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    borderRadius: '12px',
+                    border: '2px solid #e0e0e0',
+                    padding: '16px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    '&.Mui-selected': {
+                      backgroundColor: '#00aff5',
+                      color: '#fff',
+                      border: '2px solid #00aff5',
+                      '&:hover': {
+                        backgroundColor: '#0099d6',
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: '#f5f5f5',
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="driver" sx={{ mr: 2 }}>
+                  <Stack direction="column" alignItems="center" spacing={1}>
+                    <DirectionsCar fontSize="large" />
+                    <Typography variant="body1" fontWeight={600}>Kierowca</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                      Oferuję przejazdy
+                    </Typography>
+                  </Stack>
+                </ToggleButton>
+                <ToggleButton value="passenger">
+                  <Stack direction="column" alignItems="center" spacing={1}>
+                    <PersonOutline fontSize="large" />
+                    <Typography variant="body1" fontWeight={600}>Pasażer</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                      Szukam przejazdu
+                    </Typography>
+                  </Stack>
+                </ToggleButton>
+              </ToggleButtonGroup>
+              {formik.touched.role && formik.errors.role && (
+                <Typography color="error" variant="caption" sx={{ mt: 1, display: 'block' }}>
+                  {formik.errors.role}
+                </Typography>
+              )}
+            </Box>
+
             <TextField
               margin="normal"
               fullWidth
               id="username"
               name="username"
-              label="Username"
+              label="Nazwa użytkownika"
               value={formik.values.username}
               onChange={formik.handleChange}
               error={formik.touched.username && Boolean(formik.errors.username)}
               helperText={formik.touched.username && formik.errors.username}
               autoComplete="username"
-              autoFocus
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
             />
             <TextField
               margin="normal"
               fullWidth
               id="email"
               name="email"
-              label="Email Address"
+              label="Adres email"
               value={formik.values.email}
               onChange={formik.handleChange}
               error={formik.touched.email && Boolean(formik.errors.email)}
               helperText={formik.touched.email && formik.errors.email}
               autoComplete="email"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
             />
             <TextField
               margin="normal"
               fullWidth
               id="password"
               name="password"
-              label="Password"
+              label="Hasło"
               type="password"
               value={formik.values.password}
               onChange={formik.handleChange}
               error={formik.touched.password && Boolean(formik.errors.password)}
               helperText={formik.touched.password && formik.errors.password}
               autoComplete="new-password"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
             />
             <TextField
               margin="normal"
               fullWidth
               id="confirmPassword"
               name="confirmPassword"
-              label="Confirm Password"
+              label="Potwierdź hasło"
               type="password"
               value={formik.values.confirmPassword}
               onChange={formik.handleChange}
               error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
               helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
               autoComplete="new-password"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
+              disabled={!formik.values.role}
               sx={{ 
                 mt: 3, 
                 mb: 2,
-                height: 46,
-                background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-                boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
+                height: 52,
+                borderRadius: '12px',
+                backgroundColor: '#00aff5',
+                fontSize: '16px',
+                fontWeight: 700,
+                textTransform: 'none',
+                boxShadow: '0 4px 12px rgba(0, 175, 245, 0.3)',
                 '&:hover': {
-                  background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)',
-                }
+                  backgroundColor: '#0099d6',
+                  boxShadow: '0 6px 16px rgba(0, 175, 245, 0.4)',
+                },
+                '&:disabled': {
+                  backgroundColor: '#e0e0e0',
+                },
               }}
             >
               Zarejestruj się
@@ -185,10 +310,10 @@ export const Register: React.FC = () => {
                 variant="body2"
                 sx={{
                   textDecoration: 'none',
-                  color: 'primary.main',
+                  color: '#00aff5',
+                  fontWeight: 600,
                   '&:hover': {
-                    color: 'primary.dark',
-                    textDecoration: 'underline',
+                    color: '#0099d6',
                   }
                 }}
               >

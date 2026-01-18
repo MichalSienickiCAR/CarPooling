@@ -12,9 +12,10 @@ import {
     Chip,
     CircularProgress
 } from '@mui/material';
-import { ArrowBack, Logout, Place, DirectionsCar, Star, SmokingRooms, Pets, MusicNote } from '@mui/icons-material';
+import { ArrowBack, Logout, Place, DirectionsCar, Star, SmokingRooms, Pets, MusicNote, FavoriteBorder, Favorite, Report } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { tripService, authService, Trip } from '../services/api';
+import { tripService, authService, Trip, trustedUserService } from '../services/api';
+import ReportUser from './ReportUser';
 
 export const TripDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -22,6 +23,8 @@ export const TripDetails: React.FC = () => {
     const { enqueueSnackbar } = useSnackbar();
     const [trip, setTrip] = useState<Trip | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isTrusted, setIsTrusted] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
 
     useEffect(() => {
         const fetchTrip = async () => {
@@ -29,6 +32,11 @@ export const TripDetails: React.FC = () => {
             try {
                 const data = await tripService.getTrip(id);
                 setTrip(data);
+                // Sprawdź czy kierowca jest zaufany
+                if (data.driver) {
+                    const trusted = await trustedUserService.checkTrusted(data.driver);
+                    setIsTrusted(trusted);
+                }
             } catch (error) {
                 enqueueSnackbar('Nie udało się pobrać szczegółów przejazdu.', { variant: 'error' });
             } finally {
@@ -52,6 +60,22 @@ export const TripDetails: React.FC = () => {
             setTrip(updatedTrip);
         } catch (error: any) {
             const errorMessage = error.response?.data?.detail || 'Nie udało się utworzyć rezerwacji.';
+            enqueueSnackbar(errorMessage, { variant: 'error' });
+        }
+    };
+
+    const handleToggleTrusted = async () => {
+        if (!trip?.driver) return;
+        try {
+            if (isTrusted) {
+                enqueueSnackbar('Aby usunąć użytkownika z zaufanych, przejdź do listy zaufanych użytkowników', { variant: 'info' });
+            } else {
+                await trustedUserService.addTrustedUser(trip.driver, Number(id));
+                setIsTrusted(true);
+                enqueueSnackbar('Użytkownik dodany do zaufanych!', { variant: 'success' });
+            }
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.detail || 'Wystąpił błąd';
             enqueueSnackbar(errorMessage, { variant: 'error' });
         }
     };
@@ -80,7 +104,21 @@ export const TripDetails: React.FC = () => {
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#e0e0e0', mb: 4 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer', ml: 4 }} onClick={() => navigate('/')}>Sheero</Typography>
+                <Typography 
+                    variant="h5" 
+                    sx={{ 
+                        fontWeight: 'bold', 
+                        color: '#000', 
+                        cursor: 'pointer', 
+                        ml: 4 
+                    }} 
+                    onClick={() => {
+                        const isAuthenticated = !!localStorage.getItem('token');
+                        navigate(isAuthenticated ? '/dashboard' : '/');
+                    }}
+                >
+                    Sheero
+                </Typography>
                 <Box sx={{ display: 'flex', gap: 2, mr: 4 }}>
                     <Button color="inherit" onClick={() => navigate(-1)} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wróć</Button>
                     <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wyloguj</Button>
@@ -159,12 +197,83 @@ export const TripDetails: React.FC = () => {
                                 </Box>
                             </Box>
                             <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>Doświadczony kierowca, jeżdżę tą trasą regularnie. Lubię rozmawiać, ale szanuję też ciszę.</Typography>
-                            <Button variant="contained" fullWidth size="large" onClick={handleBook} disabled={trip.available_seats === 0} sx={{ borderRadius: '30px', bgcolor: '#c62828', py: 1.5, textTransform: 'none', fontSize: '1.1rem', fontWeight: 'bold', '&:hover': { bgcolor: '#b71c1c' } }}>{trip.available_seats > 0 ? 'Rezerwuj miejsce' : 'Brak miejsc'}</Button>
+                            <Stack spacing={2}>
+                                <Button 
+                                    variant="contained" 
+                                    fullWidth 
+                                    size="large" 
+                                    onClick={handleBook} 
+                                    disabled={trip.available_seats === 0} 
+                                    sx={{ 
+                                        borderRadius: '30px', 
+                                        bgcolor: '#c62828', 
+                                        py: 1.5, 
+                                        textTransform: 'none', 
+                                        fontSize: '1.1rem', 
+                                        fontWeight: 'bold', 
+                                        '&:hover': { bgcolor: '#b71c1c' } 
+                                    }}
+                                >
+                                    {trip.available_seats > 0 ? 'Rezerwuj miejsce' : 'Brak miejsc'}
+                                </Button>
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        variant="outlined"
+                                        fullWidth
+                                        startIcon={isTrusted ? <Favorite /> : <FavoriteBorder />}
+                                        onClick={handleToggleTrusted}
+                                        sx={{
+                                            borderRadius: '30px',
+                                            textTransform: 'none',
+                                            borderColor: isTrusted ? '#c62828' : '#ccc',
+                                            color: isTrusted ? '#c62828' : '#666',
+                                            '&:hover': {
+                                                borderColor: '#c62828',
+                                                bgcolor: 'rgba(198, 40, 40, 0.04)'
+                                            }
+                                        }}
+                                    >
+                                        {isTrusted ? 'Zaufany' : 'Dodaj do zaufanych'}
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<Report />}
+                                        onClick={() => setShowReportModal(true)}
+                                        sx={{
+                                            borderRadius: '30px',
+                                            textTransform: 'none',
+                                            borderColor: '#ccc',
+                                            color: '#666',
+                                            minWidth: 'fit-content',
+                                            px: 2,
+                                            '&:hover': {
+                                                borderColor: '#f44336',
+                                                color: '#f44336',
+                                                bgcolor: 'rgba(244, 67, 54, 0.04)'
+                                            }
+                                        }}
+                                    >
+                                        Zgłoś
+                                    </Button>
+                                </Stack>
+                            </Stack>
                             <Box mt={2} textAlign="center"><Typography variant="caption" color="textSecondary">Brak opłat rezerwacyjnych online</Typography></Box>
                         </Paper>
                     </Box>
                 </Stack>
             </Container>
+            
+            {showReportModal && trip?.driver && (
+                <ReportUser
+                    reportedUserId={trip.driver}
+                    reportedUsername={driver_username || 'Kierowca'}
+                    tripId={Number(id)}
+                    onClose={() => setShowReportModal(false)}
+                    onSuccess={() => {
+                        enqueueSnackbar('Zgłoszenie zostało wysłane', { variant: 'success' });
+                    }}
+                />
+            )}
         </Box>
     );
 };

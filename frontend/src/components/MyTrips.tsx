@@ -120,26 +120,70 @@ export const MyTrips: React.FC = () => {
   });
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#e0e0e0', mb: 4 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer', ml: 4 }} onClick={() => navigate('/')}>Sheero</Typography>
-        <Box sx={{ display: 'flex', gap: 2, mr: 4 }}>
-          <Button color="inherit" onClick={() => navigate('/driver')} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wróć</Button>
-          <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wyloguj</Button>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        p: 3, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        bgcolor: '#ffffff',
+        borderBottom: '1px solid #e0e0e0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+      }}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: '#00aff5', 
+            cursor: 'pointer', 
+            ml: 2,
+            fontSize: '28px'
+          }} 
+          onClick={() => navigate('/driver')}
+        >
+          Sheero
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, mr: 2 }}>
+          <Button 
+            color="inherit" 
+            onClick={() => navigate('/driver')} 
+            startIcon={<ArrowBack />} 
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': { backgroundColor: '#f5f5f5' }
+            }}
+          >
+            Wróć
+          </Button>
+          <Button 
+            color="inherit" 
+            onClick={handleLogout} 
+            startIcon={<Logout />} 
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': { backgroundColor: '#f5f5f5' }
+            }}
+          >
+            Wyloguj
+          </Button>
         </Box>
       </Box>
 
-      <Container maxWidth="lg" sx={{ flexGrow: 1, pb: 8 }}>
+      <Container maxWidth="lg" sx={{ flexGrow: 1, pb: 8, pt: 4 }}>
         {loading ? (
           <Box display='flex' justifyContent='center'><CircularProgress /></Box>
         ) : trips.length === 0 ? (
-          <Paper elevation={0} sx={{ bgcolor: '#f5f5f5', p: 6, borderRadius: '30px', textAlign: 'center' }}>
+          <Paper elevation={0} sx={{ bgcolor: '#ffffff', p: 6, borderRadius: '16px', textAlign: 'center', border: '1px solid #e0e0e0' }}>
             <Typography color="textSecondary">Nie masz jeszcze żadnych przejazdów.</Typography>
           </Paper>
         ) : (
           <Stack spacing={3}>
             {trips.map(trip => (
-              <Paper key={trip.id} elevation={0} sx={{ p: 3, borderRadius: '30px', border: '1px solid #eee', bgcolor: '#fff' }}>
+              <Paper key={trip.id} elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid #e0e0e0', bgcolor: '#fff', transition: 'all 0.3s', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>

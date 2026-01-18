@@ -15,24 +15,27 @@ import { TripDetails } from './components/TripDetails';
 import Wallet from './components/Wallet';
 import { UserProfile } from './components/UserProfile';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 import { SearchPage } from './components/SearchPage';
+import Friends from './components/Friends';
+import TrustedUsers from './components/TrustedUsers';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
 
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#2196f3',
-      light: '#64b5f6',
-      dark: '#1976d2',
+      main: '#00aff5',
+      light: '#33bff7',
+      dark: '#0099d6',
     },
     secondary: {
-      main: '#f50057',
-      light: '#ff4081',
-      dark: '#c51162',
+      main: '#34a853',
+      light: '#5cb574',
+      dark: '#2d8e46',
     },
     background: {
-      default: '#f5f5f5',
+      default: '#f8f9fa',
     },
   },
   typography: {
@@ -45,15 +48,37 @@ const theme = createTheme({
       'Arial',
       'sans-serif',
     ].join(','),
+    h1: {
+      fontWeight: 700,
+    },
+    h2: {
+      fontWeight: 700,
+    },
+    h3: {
+      fontWeight: 700,
+    },
+    h4: {
+      fontWeight: 700,
+    },
+    h5: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 600,
+    },
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
+          borderRadius: 12,
           textTransform: 'none',
           fontWeight: 600,
-          padding: '10px 20px',
+          padding: '10px 24px',
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: 'none',
+          },
         },
       },
     },
@@ -61,7 +86,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
+            borderRadius: 12,
           },
         },
       },
@@ -101,13 +126,23 @@ function App() {
             {/* Authenticated routes */}
             <Route element={<ProtectedRoute />}> 
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile" element={<UserProfile />} />
+              <Route path="/wallet" element={<Wallet />} />
+              <Route path="/friends" element={<Friends />} />
+              <Route path="/trusted-users" element={<TrustedUsers />} />
+            </Route>
+
+            {/* Driver-only routes */}
+            <Route element={<RoleProtectedRoute allowedRole="driver" />}>
               <Route path="/driver" element={<DriverDashboard />} />
-              <Route path="/passenger" element={<PassengerDashboard />} />
               <Route path="/trips/add" element={<AddTrip />} />
               <Route path="/trips/mine" element={<MyTrips />} />
+            </Route>
+
+            {/* Passenger-only routes */}
+            <Route element={<RoleProtectedRoute allowedRole="passenger" />}>
+              <Route path="/passenger" element={<PassengerDashboard />} />
               <Route path="/bookings/my" element={<MyBookings />} />
-              <Route path="/wallet" element={<Wallet />} />
-              <Route path="/profile" element={<UserProfile />} />
             </Route>
           </Routes>
         </Router>

@@ -9,8 +9,8 @@ from rest_framework.views import APIView
 from datetime import date, datetime, timedelta
 import logging
 from decimal import Decimal
-from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer, WalletSerializer, TransactionSerializer, MessageSerializer, ReviewSerializer
-from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review
+from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer, WalletSerializer, TransactionSerializer, MessageSerializer, ReviewSerializer, FriendshipSerializer, TrustedUserSerializer, ReportSerializer
+from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review, Friendship, TrustedUser, Report
 
 logger = logging.getLogger('api')
 
@@ -133,6 +133,25 @@ class TripViewSet(viewsets.ModelViewSet):
         return queryset.order_by('date', 'time')
 
     def create(self, request, *args, **kwargs):
+        # Sprawdź czy użytkownik ma rolę kierowcy
+        try:
+            user_profile = request.user.profile
+            if user_profile.preferred_role != 'driver':
+                logger.warning(
+                    f"User {request.user.username} (role: {user_profile.preferred_role}) "
+                    f"attempted to create a trip but is not a driver"
+                )
+                return Response(
+                    {'detail': 'Tylko użytkownicy z rolą kierowcy mogą dodawać przejazdy.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except UserProfile.DoesNotExist:
+            logger.error(f"User {request.user.username} has no profile")
+            return Response(
+                {'detail': 'Profil użytkownika nie istnieje.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         logger.info(f"Creating trip for user {request.user.username}")
         logger.info(f"Request data: {request.data}")
         serializer = self.get_serializer(data=request.data)
@@ -175,6 +194,25 @@ class TripViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def create_booking(self, request, pk=None):
+        # Sprawdź czy użytkownik ma rolę pasażera
+        try:
+            user_profile = request.user.profile
+            if user_profile.preferred_role != 'passenger':
+                logger.warning(
+                    f"User {request.user.username} (role: {user_profile.preferred_role}) "
+                    f"attempted to create a booking but is not a passenger"
+                )
+                return Response(
+                    {'detail': 'Tylko użytkownicy z rolą pasażera mogą rezerwować miejsca.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except UserProfile.DoesNotExist:
+            logger.error(f"User {request.user.username} has no profile")
+            return Response(
+                {'detail': 'Profil użytkownika nie istnieje.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         trip = self.get_object()
         if trip.driver == request.user:
             return Response(
@@ -868,3 +906,268 @@ class ReviewViewSet(viewsets.ModelViewSet):
         reviews = Review.objects.filter(reviewed_user=request.user).order_by('-created_at')
         serializer = self.get_serializer(reviews, many=True)
         return Response(serializer.data)
+
+
+class FriendshipViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania znajomościami"""
+    serializer_class = FriendshipSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        user = self.request.user
+        status_filter = self.request.query_params.get('status', None)
+        
+        # Znajomości gdzie użytkownik jest requester lub receiver
+        queryset = Friendship.objects.filter(
+            Q(requester=user) | Q(receiver=user)
+        )
+        
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset.order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Wysyłanie zaproszenia do znajomych"""
+        serializer.save(requester=self.request.user)
+        logger.info(f"User {self.request.user.username} sent friend request")
+    
+    @action(detail=False, methods=['get'])
+    def my_friends(self, request):
+        """Lista zaakceptowanych znajomych"""
+        friendships = Friendship.objects.filter(
+            Q(requester=request.user) | Q(receiver=request.user),
+            status='accepted'
+        )
+        serializer = self.get_serializer(friendships, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def pending_requests(self, request):
+        """Oczekujące zaproszenia (otrzymane)"""
+        friendships = Friendship.objects.filter(
+            receiver=request.user,
+            status='pending'
+        )
+        serializer = self.get_serializer(friendships, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def sent_requests(self, request):
+        """Wysłane zaproszenia"""
+        friendships = Friendship.objects.filter(
+            requester=request.user,
+            status='pending'
+        )
+        serializer = self.get_serializer(friendships, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        """Akceptacja zaproszenia do znajomych"""
+        friendship = self.get_object()
+        
+        if friendship.receiver != request.user:
+            return Response(
+                {'detail': 'Możesz akceptować tylko zaproszenia skierowane do Ciebie.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if friendship.status != 'pending':
+            return Response(
+                {'detail': 'To zaproszenie nie oczekuje na akceptację.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        friendship.status = 'accepted'
+        friendship.save()
+        
+        logger.info(f"User {request.user.username} accepted friend request from {friendship.requester.username}")
+        serializer = self.get_serializer(friendship)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Odrzucenie zaproszenia do znajomych"""
+        friendship = self.get_object()
+        
+        if friendship.receiver != request.user:
+            return Response(
+                {'detail': 'Możesz odrzucać tylko zaproszenia skierowane do Ciebie.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if friendship.status != 'pending':
+            return Response(
+                {'detail': 'To zaproszenie nie oczekuje na odpowiedź.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        friendship.status = 'rejected'
+        friendship.save()
+        
+        logger.info(f"User {request.user.username} rejected friend request from {friendship.requester.username}")
+        serializer = self.get_serializer(friendship)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def block(self, request, pk=None):
+        """Zablokowanie użytkownika"""
+        friendship = self.get_object()
+        
+        if friendship.receiver != request.user and friendship.requester != request.user:
+            return Response(
+                {'detail': 'Nie masz uprawnień do tej akcji.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        friendship.status = 'blocked'
+        friendship.save()
+        
+        logger.info(f"User {request.user.username} blocked user")
+        serializer = self.get_serializer(friendship)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def search_users(self, request):
+        """Wyszukiwanie użytkowników do dodania jako znajomi"""
+        query = request.data.get('query', '').strip()
+        
+        if not query or len(query) < 2:
+            return Response(
+                {'detail': 'Zapytanie musi zawierać co najmniej 2 znaki.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Wyszukaj użytkowników
+        users = User.objects.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        ).exclude(id=request.user.id)[:20]
+        
+        # Sprawdź status znajomości dla każdego użytkownika
+        results = []
+        for user in users:
+            friendship = Friendship.objects.filter(
+                Q(requester=request.user, receiver=user) |
+                Q(requester=user, receiver=request.user)
+            ).first()
+            
+            try:
+                profile = user.profile
+                avatar_url = profile.avatar.url if profile.avatar else None
+            except:
+                avatar_url = None
+            
+            results.append({
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name or None,
+                'last_name': user.last_name or None,
+                'avatar': avatar_url,
+                'friendship_status': friendship.status if friendship else None,
+                'friendship_id': friendship.id if friendship else None,
+            })
+        
+        return Response(results)
+
+
+class TrustedUserViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania zaufanymi użytkownikami"""
+    serializer_class = TrustedUserSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        return TrustedUser.objects.filter(user=self.request.user).order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Dodawanie użytkownika do zaufanych"""
+        serializer.save(user=self.request.user)
+        logger.info(f"User {self.request.user.username} marked user as trusted")
+    
+    @action(detail=False, methods=['get'])
+    def my_trusted(self, request):
+        """Lista moich zaufanych użytkowników"""
+        trusted = self.get_queryset()
+        serializer = self.get_serializer(trusted, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def check_trusted(self, request):
+        """Sprawdź czy użytkownik jest zaufany"""
+        user_id = request.data.get('user_id')
+        
+        if not user_id:
+            return Response(
+                {'detail': 'user_id jest wymagane.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        is_trusted = TrustedUser.objects.filter(
+            user=request.user,
+            trusted_user_id=user_id
+        ).exists()
+        
+        return Response({'is_trusted': is_trusted})
+
+
+class ReportViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania zgłoszeniami"""
+    serializer_class = ReportSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        # Użytkownik widzi tylko swoje zgłoszenia
+        # (Admini mogą widzieć wszystkie - można dodać później)
+        queryset = Report.objects.filter(reporter=user)
+        
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset.order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Tworzenie nowego zgłoszenia"""
+        serializer.save(reporter=self.request.user)
+        logger.info(f"User {self.request.user.username} created a report")
+    
+    @action(detail=False, methods=['get'])
+    def my_reports(self, request):
+        """Moje zgłoszenia"""
+        reports = self.get_queryset()
+        serializer = self.get_serializer(reports, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Statystyki zgłoszeń"""
+        reports = self.get_queryset()
+        
+        stats = {
+            'total': reports.count(),
+            'pending': reports.filter(status='pending').count(),
+            'under_review': reports.filter(status='under_review').count(),
+            'resolved': reports.filter(status='resolved').count(),
+            'dismissed': reports.filter(status='dismissed').count(),
+        }
+        
+        return Response(stats)

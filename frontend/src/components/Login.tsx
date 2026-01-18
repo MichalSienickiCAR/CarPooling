@@ -62,65 +62,83 @@ export const Login: React.FC = () => {
         }}
       >
         <Paper
-          elevation={6}
+          elevation={0}
           sx={{
             padding: 4,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             width: '100%',
-            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)',
-            boxShadow: '0 4px 20px 0 rgba(0,0,0,0.1)',
+            background: '#ffffff',
+            border: '1px solid #e0e0e0',
+            borderRadius: '20px',
           }}
         >
           <Avatar sx={{ 
             m: 1, 
-            bgcolor: 'primary.main',
-            width: 56,
-            height: 56,
+            bgcolor: '#00aff5',
+            width: 64,
+            height: 64,
           }}>
             <LockOutlined fontSize="large" />
           </Avatar>
           <Typography 
             component="h1" 
-            variant="h5"
+            variant="h4"
             sx={{ 
-              mb: 3,
-              fontWeight: 600,
-              background: 'linear-gradient(45deg, #1976d2, #2196f3)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              color: 'transparent',
+              mb: 1,
+              fontWeight: 700,
+              color: '#1a1a1a',
             }}
           >
             Zaloguj się
           </Typography>
-          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1 }}>
+          <Typography 
+            variant="body1"
+            sx={{ 
+              mb: 4,
+              color: '#666',
+              textAlign: 'center',
+            }}
+          >
+            Witamy z powrotem w Sheero
+          </Typography>
+          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1, width: '100%' }}>
             <TextField
               margin="normal"
               fullWidth
               id="username"
               name="username"
-              label="Username"
+              label="Nazwa użytkownika"
               value={formik.values.username}
               onChange={formik.handleChange}
               error={formik.touched.username && Boolean(formik.errors.username)}
               helperText={formik.touched.username && formik.errors.username}
               autoComplete="username"
               autoFocus
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
             />
             <TextField
               margin="normal"
               fullWidth
               id="password"
               name="password"
-              label="Password"
+              label="Hasło"
               type="password"
               value={formik.values.password}
               onChange={formik.handleChange}
               error={formik.touched.password && Boolean(formik.errors.password)}
               helperText={formik.touched.password && formik.errors.password}
               autoComplete="current-password"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
             />
             <Button
               type="submit"
@@ -129,11 +147,16 @@ export const Login: React.FC = () => {
               sx={{ 
                 mt: 3, 
                 mb: 2,
-                height: 46,
-                background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
-                boxShadow: '0 3px 5px 2px rgba(33, 150, 243, .3)',
+                height: 52,
+                borderRadius: '12px',
+                backgroundColor: '#00aff5',
+                fontSize: '16px',
+                fontWeight: 700,
+                textTransform: 'none',
+                boxShadow: '0 4px 12px rgba(0, 175, 245, 0.3)',
                 '&:hover': {
-                  background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)',
+                  backgroundColor: '#0099d6',
+                  boxShadow: '0 6px 16px rgba(0, 175, 245, 0.4)',
                 }
               }}
             >
@@ -148,10 +171,10 @@ export const Login: React.FC = () => {
                 variant="body2"
                 sx={{
                   textDecoration: 'none',
-                  color: 'primary.main',
+                  color: '#00aff5',
+                  fontWeight: 600,
                   '&:hover': {
-                    color: 'primary.dark',
-                    textDecoration: 'underline',
+                    color: '#0099d6',
                   }
                 }}
               >

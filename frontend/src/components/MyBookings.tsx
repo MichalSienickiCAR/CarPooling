@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Typography, Paper, Box, Stack, Chip, Button, CircularProgress, Alert, Avatar, Divider, IconButton } from '@mui/material';
-import { ArrowBack, Event, AccessTime, Person, Cancel, CheckCircle, Schedule } from '@mui/icons-material';
+import { ArrowBack, Event, AccessTime, Person, Cancel, CheckCircle, Schedule, Logout } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { bookingService, tripService, Booking } from '../services/api';
+import { bookingService, tripService, Booking, authService } from '../services/api';
 import { Payment, Warning } from '@mui/icons-material';
 
 const MyBookings: React.FC = () => {
@@ -115,18 +115,72 @@ const MyBookings: React.FC = () => {
 
   const upcomingBookings = bookings.filter(b => b.status === 'accepted' && b.trip_details && isUpcoming(b.trip_details.date));
 
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/login');
+  };
+
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', py: 4 }}>
-      <Container maxWidth="md">
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={() => navigate('/dashboard')} sx={{ bgcolor: 'white' }}>
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h4" fontWeight="bold">Moje Rezerwacje</Typography>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        p: 3, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        bgcolor: '#ffffff',
+        borderBottom: '1px solid #e0e0e0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+      }}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: '#00aff5', 
+            cursor: 'pointer', 
+            ml: 2,
+            fontSize: '28px'
+          }} 
+          onClick={() => navigate('/passenger')}
+        >
+          Sheero
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, mr: 2 }}>
+          <Button 
+            color="inherit" 
+            onClick={() => navigate('/passenger')} 
+            startIcon={<ArrowBack />} 
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': { backgroundColor: '#f5f5f5' }
+            }}
+          >
+            Wróć
+          </Button>
+          <Button 
+            color="inherit" 
+            onClick={handleLogout} 
+            startIcon={<Logout />} 
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': { backgroundColor: '#f5f5f5' }
+            }}
+          >
+            Wyloguj
+          </Button>
+        </Box>
+      </Box>
+
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" fontWeight={700} color="#1a1a1a">Moje Rezerwacje</Typography>
         </Box>
         {upcomingBookings.length > 0 && (
-          <Alert severity="info" icon={<Event />} sx={{ mb: 3, borderRadius: '20px', bgcolor: '#e3f2fd' }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>Nadchodzące przejazdy ({upcomingBookings.length})</Typography>
+          <Alert severity="info" icon={<Event />} sx={{ mb: 3, borderRadius: '12px', bgcolor: '#e3f2fd', border: '1px solid #90caf9' }}>
+            <Typography variant="h6" fontWeight={700} gutterBottom>Nadchodzące przejazdy ({upcomingBookings.length})</Typography>
             <Typography variant="body2">Masz {upcomingBookings.length} {upcomingBookings.length === 1 ? 'zaakceptowaną rezerwację' : 'zaakceptowane rezerwacje'} na najbliższe dni.</Typography>
           </Alert>
         )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Container, Typography, Button, Paper, Stack, Avatar } from '@mui/material';
-import { Add, ListAlt, Logout, ArrowBack, Person } from '@mui/icons-material';
+import { Add, ListAlt, Logout, Person, AccountBalanceWallet, People, VerifiedUser } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 
@@ -13,44 +13,256 @@ export const DriverDashboard: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#e0e0e0' }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer', ml: 4 }} onClick={() => navigate('/')}>Sheero</Typography>
-        <Box sx={{ display: 'flex', gap: 2, mr: 4, alignItems: 'center' }}>
-          <Button color="inherit" onClick={() => navigate('/profile')} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Profil</Button>
-          <Button color="inherit" onClick={() => navigate('/dashboard')} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wróć</Button>
-          <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wyloguj</Button>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        p: 3, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        bgcolor: '#ffffff',
+        borderBottom: '1px solid #e0e0e0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+      }}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: '#00aff5', 
+            cursor: 'pointer', 
+            ml: 2,
+            fontSize: '28px'
+          }} 
+          onClick={() => navigate('/driver')}
+        >
+          Sheero
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, mr: 2, alignItems: 'center' }}>
+          <Button 
+            color="inherit" 
+            onClick={() => navigate('/profile')} 
+            startIcon={<Person />}
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': {
+                backgroundColor: '#f5f5f5',
+              }
+            }}
+          >
+            Profil
+          </Button>
+          <Button 
+            color="inherit" 
+            onClick={handleLogout} 
+            startIcon={<Logout />} 
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': {
+                backgroundColor: '#f5f5f5',
+              }
+            }}
+          >
+            Wyloguj
+          </Button>
         </Box>
       </Box>
 
-      <Container maxWidth="lg" sx={{ flexGrow: 1, py: 8 }}>
-        <Box mb={6} textAlign="center">
-          <Typography variant="h3" fontWeight="bold" gutterBottom>Panel Kierowcy</Typography>
-          <Typography variant="h6" color="textSecondary">Zarządzaj swoimi podróżami w jednym miejscu</Typography>
+      <Container maxWidth="lg" sx={{ flexGrow: 1, py: 6 }}>
+        <Box mb={5} textAlign="center">
+          <Typography 
+            variant="h3" 
+            fontWeight={700} 
+            gutterBottom
+            sx={{ color: '#1a1a1a' }}
+          >
+            Panel Kierowcy
+          </Typography>
+          <Typography 
+            variant="h6" 
+            sx={{ color: '#666', fontWeight: 400 }}
+          >
+            Zarządzaj swoimi podróżami w jednym miejscu
+          </Typography>
         </Box>
 
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} justifyContent="center" alignItems="stretch">
-          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
-            <Paper elevation={0} onClick={() => navigate('/trips/add')} sx={{ p: 4, borderRadius: '30px', bgcolor: '#f5f5f5', cursor: 'pointer', transition: 'all 0.3s', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px solid transparent', '&:hover': { transform: 'translateY(-5px)', borderColor: '#c62828', bgcolor: '#ffebee' } }}>
-              <Avatar sx={{ width: 60, height: 60, bgcolor: '#c62828', mb: 2 }}><Add fontSize="large" /></Avatar>
-              <Typography variant="h5" fontWeight="bold" gutterBottom>Dodaj Przejazd</Typography>
-              <Typography color="textSecondary" align="center">Opublikuj nową ofertę przejazdu i znajdź pasażerów.</Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} justifyContent="center" alignItems="stretch" sx={{ mb: 3 }}>
+          <Box sx={{ width: { xs: '100%', md: '32%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/trips/add')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(0, 175, 245, 0.15)',
+                  border: '2px solid #00aff5',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#00aff5', mb: 2 }}>
+                <Add fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Dodaj Przejazd
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Opublikuj nową ofertę przejazdu i znajdź pasażerów.
+              </Typography>
             </Paper>
           </Box>
 
-          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
-            <Paper elevation={0} onClick={() => navigate('/trips/mine')} sx={{ p: 4, borderRadius: '30px', bgcolor: '#f5f5f5', cursor: 'pointer', transition: 'all 0.3s', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px solid transparent', '&:hover': { transform: 'translateY(-5px)', borderColor: '#424242', bgcolor: '#eeeeee' } }}>
-              <Avatar sx={{ width: 60, height: 60, bgcolor: '#424242', mb: 2 }}><ListAlt fontSize="large" /></Avatar>
-              <Typography variant="h5" fontWeight="bold" gutterBottom>Moje Przejazdy</Typography>
-              <Typography color="textSecondary" align="center">Historia, edycja i zarządzanie aktywnymi ogłoszeniami.</Typography>
+          <Box sx={{ width: { xs: '100%', md: '32%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/trips/mine')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(52, 168, 83, 0.15)',
+                  border: '2px solid #34a853',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#34a853', mb: 2 }}>
+                <ListAlt fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Moje Przejazdy
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Historia, edycja i zarządzanie aktywnymi ogłoszeniami.
+              </Typography>
             </Paper>
           </Box>
 
-          <Box sx={{ width: { xs: '100%', md: '30%' } }}>
-            <Paper elevation={0} onClick={() => navigate('/wallet')} sx={{ p: 4, borderRadius: '30px', bgcolor: '#f5f5f5', cursor: 'pointer', transition: 'all 0.3s', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '2px solid transparent', '&:hover': { transform: 'translateY(-5px)', borderColor: '#ff9800', bgcolor: '#fff3e0' } }}>
-              <Avatar sx={{ width: 60, height: 60, bgcolor: '#ff9800', mb: 2 }}><Person fontSize="large" /></Avatar>
-              <Typography variant="h5" fontWeight="bold" gutterBottom>Portfel</Typography>
-              <Typography color="textSecondary" align="center">Zarządzaj saldem, wypłatami i historią transakcji.</Typography>
+          <Box sx={{ width: { xs: '100%', md: '32%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/wallet')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(251, 188, 5, 0.15)',
+                  border: '2px solid #fbbc05',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#fbbc05', mb: 2 }}>
+                <AccountBalanceWallet fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Portfel
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Zarządzaj saldem, wypłatami i historią transakcji.
+              </Typography>
+            </Paper>
+          </Box>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} justifyContent="center" alignItems="stretch">
+          <Box sx={{ width: { xs: '100%', md: '48%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/friends')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(156, 39, 176, 0.15)',
+                  border: '2px solid #9c27b0',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#9c27b0', mb: 2 }}>
+                <People fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Znajomi
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Zarządzaj listą znajomych i zaproszeniami.
+              </Typography>
+            </Paper>
+          </Box>
+
+          <Box sx={{ width: { xs: '100%', md: '48%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/trusted-users')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(76, 175, 80, 0.15)',
+                  border: '2px solid #4caf50',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#4caf50', mb: 2 }}>
+                <VerifiedUser fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Zaufani Użytkownicy
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Lista sprawdzonych współpodróżnych.
+              </Typography>
             </Paper>
           </Box>
         </Stack>

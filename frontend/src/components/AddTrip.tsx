@@ -17,6 +17,24 @@ const validationSchema = yup.object({
   price_per_seat: yup.number().required('Wymagane').min(0, 'Nie może być ujemna'),
 });
 
+// Komponent CustomInput poza AddTrip, aby uniknąć utraty focusu
+const CustomInput: React.FC<any> = (props) => (
+  <TextField
+    fullWidth
+    variant="outlined"
+    {...props}
+    sx={{
+      '& .MuiOutlinedInput-root': {
+        borderRadius: '12px',
+        bgcolor: 'white',
+        '& fieldset': { borderColor: '#e0e0e0' },
+        '&:hover fieldset': { borderColor: '#00aff5' },
+        '&.Mui-focused fieldset': { borderColor: '#00aff5' },
+      },
+    }}
+  />
+);
+
 export const AddTrip: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -60,24 +78,64 @@ export const AddTrip: React.FC = () => {
     } catch (error: any) { const errorMessage = error.response?.data?.detail || 'Nie udało się zapisać szablonu.'; enqueueSnackbar(errorMessage, { variant: 'error' }); }
   };
 
-  const CustomInput = (props: any) => (
-    <TextField fullWidth variant="outlined" {...props} sx={{ '& .MuiOutlinedInput-root': { borderRadius: '20px', bgcolor: 'white', '& fieldset': { borderColor: '#e0e0e0' }, '&:hover fieldset': { borderColor: '#bdbdbd' }, '&.Mui-focused fieldset': { borderColor: '#c62828' } } }} />
-  );
-
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#e0e0e0', mb: 4 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer', ml: 4 }} onClick={() => navigate('/')}>Sheero</Typography>
-        <Box sx={{ display: 'flex', gap: 2, mr: 4 }}>
-          <Button color="inherit" onClick={() => navigate('/driver')} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wróć</Button>
-          <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wyloguj</Button>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        p: 3, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        bgcolor: '#ffffff',
+        borderBottom: '1px solid #e0e0e0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+      }}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: '#00aff5', 
+            cursor: 'pointer', 
+            ml: 2,
+            fontSize: '28px'
+          }} 
+          onClick={() => navigate('/driver')}
+        >
+          Sheero
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, mr: 2 }}>
+          <Button 
+            color="inherit" 
+            onClick={() => navigate('/driver')} 
+            startIcon={<ArrowBack />} 
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': { backgroundColor: '#f5f5f5' }
+            }}
+          >
+            Wróć
+          </Button>
+          <Button 
+            color="inherit" 
+            onClick={handleLogout} 
+            startIcon={<Logout />} 
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 600,
+              color: '#333',
+              '&:hover': { backgroundColor: '#f5f5f5' }
+            }}
+          >
+            Wyloguj
+          </Button>
         </Box>
       </Box>
 
-      <Container maxWidth="md" sx={{ flexGrow: 1, pb: 8 }}>
-        <Paper elevation={0} sx={{ bgcolor: '#f5f5f5', p: { xs: 3, md: 6 }, borderRadius: '40px' }}>
+      <Container maxWidth="md" sx={{ flexGrow: 1, pb: 8, pt: 4 }}>
+        <Paper elevation={0} sx={{ bgcolor: '#ffffff', p: { xs: 3, md: 6 }, borderRadius: '20px', border: '1px solid #e0e0e0' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Dodaj nowy przejazd</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Dodaj nowy przejazd</Typography>
             {templates.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Użyj szablonu</InputLabel>
@@ -97,7 +155,7 @@ export const AddTrip: React.FC = () => {
               <Box>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <CustomInput label="Dodaj punkt pośredni" value={currentStop} onChange={(e: any) => setCurrentStop(e.target.value)} onKeyPress={(e: any) => { if (e.key === 'Enter') { e.preventDefault(); handleAddStop(); } }} />
-                  <IconButton onClick={handleAddStop} sx={{ bgcolor: '#c62828', color: 'white', '&:hover': { bgcolor: '#b71c1c' } }}><Add /></IconButton>
+                  <IconButton onClick={handleAddStop} sx={{ bgcolor: '#00aff5', color: 'white', '&:hover': { bgcolor: '#0099d6' } }}><Add /></IconButton>
                 </Stack>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>{intermediateStops.map((stop, index) => (<Chip key={index} label={stop} onDelete={() => handleRemoveStop(stop)} sx={{ bgcolor: 'white', border: '1px solid #e0e0e0', fontWeight: 'bold' }} />))}</Box>
               </Box>
@@ -110,21 +168,83 @@ export const AddTrip: React.FC = () => {
                 <CustomInput label="Cena (PLN)" type="number" name="price_per_seat" value={formik.values.price_per_seat} onChange={formik.handleChange} error={formik.touched.price_per_seat && Boolean(formik.errors.price_per_seat)} inputProps={{ min: 0, step: 0.01 }} />
               </Stack>
               <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                <Button onClick={() => setSaveTemplateDialogOpen(true)} variant="outlined" startIcon={<Save />} sx={{ borderRadius: '30px', py: 1.5, flex: 1, textTransform: 'none', fontWeight: 'bold', borderColor: '#c62828', color: '#c62828', '&:hover': { borderColor: '#b71c1c', bgcolor: '#ffebee' } }}>Zapisz jako szablon</Button>
-                <Button type="submit" variant="contained" sx={{ bgcolor: '#c62828', borderRadius: '30px', py: 1.5, flex: 2, fontSize: '1.1rem', textTransform: 'none', fontWeight: 'bold', boxShadow: 'none', '&:hover': { bgcolor: '#b71c1c', boxShadow: 'none' } }}>Opublikuj przejazd</Button>
+                <Button 
+                  onClick={() => setSaveTemplateDialogOpen(true)} 
+                  variant="outlined" 
+                  startIcon={<Save />} 
+                  sx={{ 
+                    borderRadius: '12px', 
+                    py: 1.5, 
+                    flex: 1, 
+                    textTransform: 'none', 
+                    fontWeight: 700, 
+                    borderColor: '#00aff5', 
+                    color: '#00aff5', 
+                    '&:hover': { 
+                      borderColor: '#0099d6', 
+                      bgcolor: 'rgba(0, 175, 245, 0.04)' 
+                    } 
+                  }}
+                >
+                  Zapisz jako szablon
+                </Button>
+                <Button 
+                  type="submit" 
+                  variant="contained" 
+                  sx={{ 
+                    bgcolor: '#00aff5', 
+                    borderRadius: '12px', 
+                    py: 1.5, 
+                    flex: 2, 
+                    fontSize: '1.1rem', 
+                    textTransform: 'none', 
+                    fontWeight: 700, 
+                    boxShadow: '0 4px 12px rgba(0, 175, 245, 0.3)', 
+                    '&:hover': { 
+                      bgcolor: '#0099d6', 
+                      boxShadow: '0 6px 16px rgba(0, 175, 245, 0.4)' 
+                    } 
+                  }}
+                >
+                  Opublikuj przejazd
+                </Button>
               </Stack>
             </Stack>
           </Box>
         </Paper>
-        <Dialog open={saveTemplateDialogOpen} onClose={() => setSaveTemplateDialogOpen(false)} PaperProps={{ sx: { borderRadius: '30px', p: 2 } }}>
-          <DialogTitle sx={{ fontWeight: 'bold' }}>Zapisz jako szablon</DialogTitle>
+        <Dialog open={saveTemplateDialogOpen} onClose={() => setSaveTemplateDialogOpen(false)} PaperProps={{ sx: { borderRadius: '20px', p: 2 } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Zapisz jako szablon</DialogTitle>
           <DialogContent>
-            <TextField fullWidth label="Nazwa szablonu" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder={`${formik.values.start_location} → ${formik.values.end_location}`} sx={{ mt: 2 }} />
+            <TextField 
+              fullWidth 
+              label="Nazwa szablonu" 
+              value={templateName} 
+              onChange={(e) => setTemplateName(e.target.value)} 
+              placeholder={`${formik.values.start_location} → ${formik.values.end_location}`} 
+              sx={{ 
+                mt: 2,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                }
+              }} 
+            />
             <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>Szablon zostanie zapisany z aktualnymi danymi trasy (bez daty).</Typography>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setSaveTemplateDialogOpen(false)} sx={{ borderRadius: '20px' }}>Anuluj</Button>
-            <Button onClick={handleSaveAsTemplate} variant="contained" sx={{ borderRadius: '20px', bgcolor: '#c62828', '&:hover': { bgcolor: '#b71c1c' } }}>Zapisz</Button>
+            <Button onClick={() => setSaveTemplateDialogOpen(false)} sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 600 }}>Anuluj</Button>
+            <Button 
+              onClick={handleSaveAsTemplate} 
+              variant="contained" 
+              sx={{ 
+                borderRadius: '12px', 
+                bgcolor: '#00aff5', 
+                textTransform: 'none',
+                fontWeight: 700,
+                '&:hover': { bgcolor: '#0099d6' } 
+              }}
+            >
+              Zapisz
+            </Button>
           </DialogActions>
         </Dialog>
       </Container>
