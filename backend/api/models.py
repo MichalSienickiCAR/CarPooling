@@ -158,6 +158,7 @@ class Notification(models.Model):
 		('booking_request', 'Nowa prośba o rezerwację'),
 		('booking_accepted', 'Rezerwacja zaakceptowana'),
 		('booking_rejected', 'Rezerwacja odrzucona'),
+		('driver_message', 'Wiadomość od kierowcy'),
 	]
     
 	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')

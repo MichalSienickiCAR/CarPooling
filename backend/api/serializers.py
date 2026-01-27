@@ -93,11 +93,30 @@ class UserSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     passenger_username = serializers.ReadOnlyField(source='passenger.username')
     trip_details = serializers.SerializerMethodField()
+    trip_start_location = serializers.ReadOnlyField(source='trip.start_location')
+    trip_end_location = serializers.ReadOnlyField(source='trip.end_location')
+    trip_date = serializers.ReadOnlyField(source='trip.date')
+    trip_time = serializers.SerializerMethodField()
+    trip_price_per_seat = serializers.ReadOnlyField(source='trip.price_per_seat')
+    driver_username = serializers.ReadOnlyField(source='trip.driver.username')
+    paid_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = Booking
-        fields = ['id', 'passenger', 'passenger_username', 'seats', 'status', 'created_at', 'trip_details']
-        read_only_fields = ['id', 'created_at', 'passenger_username', 'trip_details']
+        fields = [
+            'id', 'passenger', 'passenger_username', 'seats', 'status', 
+            'paid_at', 'created_at', 'trip_details', 
+            'trip_start_location', 'trip_end_location', 'trip_date', 
+            'trip_time', 'trip_price_per_seat', 'driver_username'
+        ]
+        read_only_fields = [
+            'id', 'created_at', 'passenger_username', 'trip_details',
+            'trip_start_location', 'trip_end_location', 'trip_date',
+            'trip_time', 'trip_price_per_seat', 'driver_username', 'paid_at'
+        ]
+    
+    def get_trip_time(self, obj):
+        return str(obj.trip.time) if obj.trip.time else None
     
     def get_trip_details(self, obj):
         trip = obj.trip

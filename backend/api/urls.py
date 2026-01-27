@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TripViewSet, TripSearchView, UserProfileView, UserDetailsView, FavoriteRouteViewSet, TripTemplateViewSet, NotificationViewSet, MyBookingsView, WalletView, TransactionListView, MessageViewSet, ReviewViewSet, FriendshipViewSet, TrustedUserViewSet, ReportViewSet
+from .views import TripViewSet, TripSearchView, UserProfileView, UserDetailsView, FavoriteRouteViewSet, TripTemplateViewSet, NotificationViewSet, MyBookingsView, BookingHistoryView, WalletView, TransactionListView, MessageViewSet, ReviewViewSet, FriendshipViewSet, TrustedUserViewSet, ReportViewSet
 
 router = DefaultRouter()
 router.register(r'trips', TripViewSet, basename='trip')
@@ -18,6 +18,7 @@ urlpatterns = [
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
     path('user/<int:user_id>/details/', UserDetailsView.as_view(), name='user-details'),
     path('bookings/my/', MyBookingsView.as_view(), name='my-bookings'),
+    path('bookings/history/', BookingHistoryView.as_view(), name='booking-history'),
     path('wallet/', WalletView.as_view(), name='wallet'),
     path('transactions/', TransactionListView.as_view(), name='transactions'),
     path('', include(router.urls)),

@@ -114,6 +114,14 @@ class TripViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Dla akcji które potrzebują dostępu do wszystkich przejazdów (np. complete_trip, cancel)
+        # nie filtrujemy po dacie
+        if self.action in ['retrieve', 'update', 'partial_update', 'destroy', 'complete_trip', 
+                           'cancel', 'passengers', 'accept_booking', 'reject_booking', 
+                           'cancel_booking', 'create_booking', 'pay_booking', 'notify_passengers']:
+            return Trip.objects.all()
+        
+        # Dla listy i wyszukiwania pokazujemy tylko przyszłe przejazdy z wolnymi miejscami
         queryset = Trip.objects.filter(date__gte=date.today())
         start_location = self.request.query_params.get('start_location', None)
         end_location = self.request.query_params.get('end_location', None)
@@ -512,6 +520,64 @@ class TripViewSet(viewsets.ModelViewSet):
                 'bookings_count': 0
             }, status=status.HTTP_200_OK)
     
+    @action(detail=True, methods=['post'])
+    def notify_passengers(self, request, pk=None):
+        """Wyślij powiadomienie do wszystkich pasażerów tego przejazdu"""
+        trip = self.get_object()
+        
+        # Sprawdź czy użytkownik jest kierowcą tego przejazdu
+        if trip.driver != request.user:
+            return Response(
+                {'detail': 'Nie masz uprawnień do wysyłania powiadomień dla tego przejazdu.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Pobierz wiadomość z requestu
+        message = request.data.get('message', '').strip()
+        if not message:
+            return Response(
+                {'detail': 'Wiadomość nie może być pusta.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Pobierz wszystkich pasażerów z aktywnymi rezerwacjami (reserved, accepted, paid)
+        active_bookings = trip.bookings.filter(
+            status__in=['reserved', 'accepted', 'paid']
+        )
+        
+        if not active_bookings.exists():
+            return Response(
+                {'detail': 'Brak pasażerów z aktywnymi rezerwacjami w tym przejeździe.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Utwórz powiadomienia dla każdego pasażera
+        notifications_created = 0
+        for booking in active_bookings:
+            passenger = booking.passenger
+            profile = passenger.profile
+            
+            # Sprawdź czy pasażer ma włączone powiadomienia
+            if profile.notifications_enabled:
+                Notification.objects.create(
+                    user=passenger,
+                    trip=trip,
+                    notification_type='driver_message',
+                    message=f"Wiadomość od kierowcy ({trip.start_location} → {trip.end_location}, {trip.date}): {message}"
+                )
+                notifications_created += 1
+        
+        logger.info(
+            f"Driver {request.user.username} sent notification to {notifications_created} passengers "
+            f"for trip {trip.id}: {message[:50]}"
+        )
+        
+        return Response({
+            'detail': f'Powiadomienie wysłane do {notifications_created} pasażera/ów.',
+            'notifications_sent': notifications_created,
+            'total_passengers': active_bookings.count()
+        }, status=status.HTTP_200_OK)
+    
     @action(detail=False, methods=['get'])
     def my_trips(self, request):
         try:
@@ -532,6 +598,28 @@ class TripViewSet(viewsets.ModelViewSet):
             logger.error(f"Error in my_trips endpoint: {str(e)}", exc_info=True)
             return Response(
                 {'detail': f'Błąd podczas pobierania przejazdów: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def history(self, request):
+        """Historia zakończonych przejazdów kierowcy"""
+        try:
+            trips = Trip.objects.filter(
+                driver=request.user,
+                completed=True
+            ).order_by('-completed_at', '-date', '-time')
+            
+            logger.info(
+                f"Driver {request.user.username} viewed trip history: "
+                f"{trips.count()} completed trips found"
+            )
+            serializer = self.get_serializer(trips, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error in history endpoint: {str(e)}", exc_info=True)
+            return Response(
+                {'detail': f'Błąd podczas pobierania historii: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -688,6 +776,27 @@ class MyBookingsView(generics.ListAPIView):
         return queryset.order_by('trip__date', 'trip__time')
 
 
+class BookingHistoryView(generics.ListAPIView):
+    """Historia zakończonych rezerwacji pasażera"""
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Booking.objects.filter(
+            passenger=self.request.user,
+            trip__completed=True
+        )
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        logger.info(
+            f"Passenger {self.request.user.username} viewed booking history: "
+            f"{queryset.count()} completed bookings found"
+        )
+        return queryset.order_by('-trip__completed_at', '-trip__date', '-trip__time')
+
+
 class WalletView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -721,28 +830,33 @@ class WalletView(APIView):
     def post(self, request):
         try:
             amount = request.data.get('amount')
-            logger.info(f"Wallet deposit request from {request.user.username}: amount={amount}, data={request.data}")
-            if not amount:
+            if amount is None or amount == '':
                 return Response({'detail': 'Brak kwoty do wpłaty.'}, status=status.HTTP_400_BAD_REQUEST)
             try:
-                amount = Decimal(str(amount))
+                # Konwersja przez float dla lepszej kompatybilności
+                amount_float = float(amount)
+                amount = Decimal(str(amount_float))
                 if amount <= 0:
                     return Response({'detail': 'Kwota musi być większa od 0.'}, status=status.HTTP_400_BAD_REQUEST)
             except (ValueError, TypeError) as e:
                 return Response({'detail': 'Nieprawidłowa kwota.'}, status=status.HTTP_400_BAD_REQUEST)
+            
             wallet, created = Wallet.objects.get_or_create(user=request.user)
-            old_balance = wallet.balance
             wallet.balance += amount
             wallet.save()
+            
             Transaction.objects.create(
                 user=request.user,
                 transaction_type='deposit',
                 amount=amount,
                 description=f'Wpłata przez BLIK (symulacja) - {amount} zł'
             )
+            
+            logger.info(f"Deposit successful for {request.user.username}: {amount} zł")
             serializer = WalletSerializer(wallet)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
+            logger.error(f"Deposit error for {request.user.username}: {str(e)}", exc_info=True)
             return Response({'detail': f'Błąd podczas wpłaty: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

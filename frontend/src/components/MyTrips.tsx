@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppBar, Box, Button, Chip, CircularProgress, Container, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, List, ListItem, ListItemText, Paper, Stack, TextField, Typography } from '@mui/material';
-import { Add, Edit, Delete, People, ArrowForward, Logout, ArrowBack, Check, Close } from '@mui/icons-material';
+import { Add, Edit, Delete, People, ArrowForward, Logout, ArrowBack, Check, Close, Notifications, CheckCircle } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useFormik } from 'formik';
@@ -27,6 +27,8 @@ export const MyTrips: React.FC = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [passengersDialogOpen, setPassengersDialogOpen] = useState(false);
   const [passengers, setPassengers] = useState<Booking[]>([]);
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
 
   const loadTrips = async () => {
     setLoading(true);
@@ -92,6 +94,47 @@ export const MyTrips: React.FC = () => {
       loadTrips();
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || 'Nie udało się odrzucić rezerwacji.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
+  const handleOpenNotifyDialog = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setNotificationMessage('');
+    setNotifyDialogOpen(true);
+  };
+
+  const handleSendNotification = async () => {
+    if (!selectedTrip?.id) return;
+    if (!notificationMessage.trim()) {
+      enqueueSnackbar('Wiadomość nie może być pusta.', { variant: 'warning' });
+      return;
+    }
+    try {
+      const response = await tripService.notifyPassengers(selectedTrip.id, notificationMessage);
+      enqueueSnackbar(response.detail || 'Powiadomienie wysłane!', { variant: 'success' });
+      setNotifyDialogOpen(false);
+      setNotificationMessage('');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Nie udało się wysłać powiadomienia.';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    }
+  };
+
+  const handleCompleteTrip = async (trip: Trip) => {
+    if (!trip.id) return;
+    const isPastDate = new Date(trip.date) < new Date(new Date().toDateString());
+    if (!isPastDate) {
+      enqueueSnackbar('Można zakończyć tylko przejazd, który się już odbył.', { variant: 'warning' });
+      return;
+    }
+    if (!window.confirm(`Czy na pewno oznaczyć ten przejazd jako zakończony? Otrzymasz wypłatę za opłacone rezerwacje.`)) return;
+    try {
+      const response = await tripService.completeTrip(trip.id);
+      enqueueSnackbar(response.detail || 'Przejazd zakończony!', { variant: 'success' });
+      loadTrips();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Nie udało się zakończyć przejazdu.';
       enqueueSnackbar(errorMessage, { variant: 'error' });
     }
   };
@@ -206,8 +249,14 @@ export const MyTrips: React.FC = () => {
                   </Box>
                 )}
                 <Divider sx={{ mb: 2 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Button startIcon={<People />} onClick={() => handleShowPassengers(trip)} sx={{ color: '#000', textTransform: 'none', background: '#f5f5f5', borderRadius: '20px', px: 2, '&:hover': { background: '#eee' } }}>Pasażerowie ({trip.bookings?.length || 0})</Button>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button startIcon={<People />} onClick={() => handleShowPassengers(trip)} sx={{ color: '#000', textTransform: 'none', background: '#f5f5f5', borderRadius: '20px', px: 2, '&:hover': { background: '#eee' } }}>Pasażerowie ({trip.bookings?.length || 0})</Button>
+                    <Button startIcon={<Notifications />} onClick={() => handleOpenNotifyDialog(trip)} sx={{ color: '#000', textTransform: 'none', background: '#e3f2fd', borderRadius: '20px', px: 2, '&:hover': { background: '#bbdefb' } }}>Wyślij powiadomienie</Button>
+                    {!trip.completed && new Date(trip.date) < new Date(new Date().toDateString()) && (
+                      <Button startIcon={<CheckCircle />} onClick={() => handleCompleteTrip(trip)} sx={{ color: '#fff', textTransform: 'none', background: '#4caf50', borderRadius: '20px', px: 2, '&:hover': { background: '#45a049' } }}>Zakończ przejazd</Button>
+                    )}
+                  </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <IconButton onClick={() => handleOpenEdit(trip)} color="primary" sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}><Edit /></IconButton>
                     <IconButton onClick={() => tripService.cancelTrip(trip.id!)} color="error" sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}><Delete /></IconButton>
@@ -256,6 +305,29 @@ export const MyTrips: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setPassengersDialogOpen(false)} sx={{ borderRadius: '20px' }}>Zamknij</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={notifyDialogOpen} onClose={() => setNotifyDialogOpen(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: '30px' } }}>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Wyślij powiadomienie pasażerom</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Wiadomość zostanie wysłana do wszystkich pasażerów z aktywnymi rezerwacjami dla przejazdu: {selectedTrip?.start_location} → {selectedTrip?.end_location}
+          </Typography>
+          <TextField
+            label="Wiadomość"
+            multiline
+            rows={4}
+            fullWidth
+            value={notificationMessage}
+            onChange={(e) => setNotificationMessage(e.target.value)}
+            placeholder="Np. Opóźnienie 15 min, zmiana miejsca spotkania na parking..."
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setNotifyDialogOpen(false)} sx={{ borderRadius: '20px', color: '#757575' }}>Anuluj</Button>
+          <Button onClick={handleSendNotification} variant="contained" sx={{ borderRadius: '20px', bgcolor: '#00aff5', '&:hover': { bgcolor: '#0097d6' } }}>Wyślij</Button>
         </DialogActions>
       </Dialog>
     </Box>

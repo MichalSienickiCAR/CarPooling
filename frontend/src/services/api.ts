@@ -157,6 +157,8 @@ export interface Trip {
   time: string;
   available_seats: number;
   price_per_seat: number;
+  completed?: boolean;
+  completed_at?: string | null;
   created_at?: string;
   updated_at?: string;
   bookings?: Booking[];
@@ -187,6 +189,12 @@ export interface Booking {
   paid_at?: string | null;
   created_at: string;
   trip_details: TripDetails | null;
+  trip_start_location?: string;
+  trip_end_location?: string;
+  trip_date?: string;
+  trip_time?: string;
+  trip_price_per_seat?: number | string;
+  driver_username?: string;
 }
 
 export interface FavoriteRoute {
@@ -307,12 +315,29 @@ export const tripService = {
     const response = await api.post(`/trips/${tripId}/create_booking/`, { seats });
     return response.data as Booking;
   },
+
+  async notifyPassengers(tripId: number, message: string) {
+    const response = await api.post(`/trips/${tripId}/notify_passengers/`, { message });
+    return response.data;
+  },
+
+  async getTripHistory() {
+    const response = await api.get('/trips/history/');
+    return response.data as Trip[];
+  },
 };
 
 export const bookingService = {
   async getMyBookings(status?: string) {
     const params = status ? `?status=${status}` : '';
     const url = `/bookings/my/${params}`;
+    const response = await api.get(url);
+    return response.data as Booking[];
+  },
+
+  async getBookingHistory(status?: string) {
+    const params = status ? `?status=${status}` : '';
+    const url = `/bookings/history/${params}`;
     const response = await api.get(url);
     return response.data as Booking[];
   },

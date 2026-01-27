@@ -50,7 +50,7 @@ const Wallet: React.FC = () => {
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
     if (isNaN(amount) || amount <= 0) {
-      enqueueSnackbar('Podaj prawidłową kwotę', { variant: 'error' });
+      enqueueSnackbar('Podaj prawidłową kwotę (większą niż 0)', { variant: 'error' });
       return;
     }
     setDepositLoading(true);
@@ -59,7 +59,7 @@ const Wallet: React.FC = () => {
       setWallet(updatedWallet);
       setDepositDialogOpen(false);
       setDepositAmount('');
-      enqueueSnackbar(`Wpłacono ${amount} zł do portfela (symulacja BLIK)`, { variant: 'success' });
+      enqueueSnackbar(`Wpłacono ${amount.toFixed(2)} zł do portfela (symulacja BLIK)`, { variant: 'success' });
       loadTransactions();
     } catch (error: any) {
       enqueueSnackbar(error.response?.data?.detail || 'Błąd podczas wpłaty', { variant: 'error' });
@@ -176,7 +176,18 @@ const Wallet: React.FC = () => {
         <DialogTitle>Zasil portfel przez BLIK</DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>To jest symulacja płatności. W rzeczywistości nie zostanie pobrana żadna kwota.</Alert>
-          <TextField autoFocus margin="dense" label="Kwota (zł)" type="number" fullWidth variant="outlined" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} inputProps={{ min: 0, step: 0.01 }} />
+          <TextField 
+            autoFocus 
+            margin="dense" 
+            label="Kwota (zł)" 
+            type="number" 
+            fullWidth 
+            variant="outlined" 
+            value={depositAmount} 
+            onChange={(e) => setDepositAmount(e.target.value)} 
+            inputProps={{ min: "0.01", step: "0.01" }}
+            helperText="Podaj kwotę większą niż 0"
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDepositDialogOpen(false)}>Anuluj</Button>

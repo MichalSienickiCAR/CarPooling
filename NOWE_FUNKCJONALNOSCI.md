@@ -220,6 +220,70 @@ npm start
    - Wypełnij formularz zgłoszenia
    - Wyślij zgłoszenie
 
+### 5. Powiadomienia Kierowcy dla Pasażerów
+
+**Funkcje:**
+- Kierowca może wysłać wiadomość/powiadomienie do wszystkich pasażerów z aktywnymi rezerwacjami
+- Przydatne do informowania o opóźnieniach, zmianie miejsca spotkania itp.
+- Powiadomienia trafiają do centrum powiadomień pasażerów
+
+**Backend API:**
+- `POST /api/trips/{id}/notify_passengers/` - Wyślij powiadomienie do wszystkich pasażerów
+  - Body: `{ "message": "treść wiadomości" }`
+  - Tylko kierowca przejazdu może wysłać powiadomienie
+  - Powiadomienia są wysyłane tylko do pasażerów z aktywnymi rezerwacjami (reserved, accepted, paid)
+  - Respektuje ustawienia powiadomień użytkowników
+
+**Frontend:**
+- Komponent: `MyTrips.tsx` - dodany przycisk "Wyślij powiadomienie"
+- Dialog do wprowadzenia wiadomości
+- Route: `/my-trips`
+
+**Model Notification:**
+- Dodany nowy typ powiadomienia: `driver_message`
+- Powiadomienie zawiera informacje o przejeździe i wiadomość od kierowcy
+
+**Jak używać:**
+1. Jako kierowca, przejdź do "Moje Przejazdy"
+2. Wybierz przejazd, dla którego chcesz wysłać powiadomienie
+3. Kliknij przycisk "Wyślij powiadomienie"
+4. Wpisz wiadomość (np. "Opóźnienie 15 min", "Zmiana miejsca spotkania na parking przy dworcu")
+5. Wyślij - wszyscy pasażerowie z aktywnymi rezerwacjami otrzymają powiadomienie
+
+### 6. Historia Przejazdów
+
+**Funkcje:**
+- Przeglądanie zakończonych przejazdów jako kierowca
+- Przeglądanie zakończonych rezerwacji jako pasażer
+- Szczegółowe informacje o każdym przejeździe (data, cena, pasażerowie)
+- Informacje o statusie rezerwacji i płatnościach
+
+**Backend API:**
+- `GET /api/trips/history/` - Historia zakończonych przejazdów kierowcy
+  - Zwraca tylko przejazdy z `completed=True`
+  - Sortowanie według daty zakończenia
+- `GET /api/bookings/history/` - Historia zakończonych rezerwacji pasażera
+  - Zwraca tylko rezerwacje z zakończonych przejazdów (`trip.completed=True`)
+  - Opcjonalny filtr `?status=paid` do filtrowania po statusie
+  - Sortowanie według daty zakończenia przejazdu
+
+**Frontend:**
+- Komponent: `History.tsx`
+- Route: `/history`
+- Dostępny z dashboardów kierowcy i pasażera
+- Automatyczne wykrywanie roli użytkownika i wyświetlanie odpowiedniej historii
+
+**Modele:**
+- Trip: pola `completed` (boolean), `completed_at` (datetime)
+- Booking: rozszerzone serializery o informacje o przejeździe
+
+**Jak używać:**
+1. Przejdź do panelu głównego (Dashboard)
+2. Kliknij kafelek "Historia" (pomarańczowa ikona zegara)
+3. Zobacz listę zakończonych przejazdów:
+   - Kierowca: widzi swoje zakończone przejazdy z informacją o pasażerach
+   - Pasażer: widzi swoje zakończone rezerwacje z informacją o kierowcy i statusie
+
 ## 🔐 Bezpieczeństwo
 
 - Użytkownik nie może dodać siebie do znajomych/zaufanych
@@ -237,10 +301,12 @@ npm start
 
 ## 🎉 Podsumowanie
 
-Aplikacja została rozszerzona o kompletny system społecznościowy, który pozwala użytkownikom:
+Aplikacja została rozszerzona o kompletny system społecznościowy oraz funkcje komunikacji i śledzenia aktywności, która pozwala użytkownikom:
 - Budować sieć zaufanych współpodróżnych
 - Łatwo znaleźć i dodać znajomych
 - Zgłaszać problemy administracji
 - Komunikować się przez wbudowany czat
+- **[NOWE] Kierowcy mogą wysyłać grupowe powiadomienia do wszystkich pasażerów o zmianach w przejeździe**
+- **[NOWE] Użytkownicy mogą przeglądać historię swoich zakończonych przejazdów jako kierowca lub pasażer**
 
 Wszystkie funkcjonalności zostały w pełni zaimplementowane i przetestowane!

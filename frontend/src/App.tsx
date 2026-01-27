@@ -19,6 +19,7 @@ import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 import { SearchPage } from './components/SearchPage';
 import Friends from './components/Friends';
 import TrustedUsers from './components/TrustedUsers';
+import { History } from './components/History';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
 
@@ -130,6 +131,7 @@ function App() {
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/friends" element={<Friends />} />
               <Route path="/trusted-users" element={<TrustedUsers />} />
+              <Route path="/history" element={<History />} />
             </Route>
 
             {/* Driver-only routes */}
