@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Button, Chip, CircularProgress, Container, Divider, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
-import { ArrowForward, Logout, ArrowBack, DirectionsCar, PersonOutline, CheckCircle, Cancel, EventAvailable } from '@mui/icons-material';
+import { ArrowForward, Logout, ArrowBack, DirectionsCar, PersonOutline, CheckCircle, Cancel, EventAvailable, Star, PersonAdd } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { Booking, Trip, tripService, bookingService, authService } from '../services/api';
+import { Booking, Trip, tripService, bookingService, authService, trustedUserService } from '../services/api';
+import AddReviewDialog from './AddReviewDialog';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -28,6 +29,15 @@ export const History: React.FC = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [userRole, setUserRole] = useState<'driver' | 'passenger'>('driver');
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedReview, setSelectedReview] = useState<{
+    tripId: number;
+    userId: number;
+    username: string;
+    bookingId?: number;
+    tripRoute: string;
+  } | null>(null);
+  const [addingTrustedUser, setAddingTrustedUser] = useState<number | null>(null);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') as 'driver' | 'passenger';
@@ -60,6 +70,36 @@ export const History: React.FC = () => {
   const handleLogout = () => {
     authService.logout();
     navigate('/login');
+  };
+
+  const handleOpenReviewDialog = (tripId: number, userId: number, username: string, bookingId: number | undefined, tripRoute: string) => {
+    setSelectedReview({ tripId, userId, username, bookingId, tripRoute });
+    setReviewDialogOpen(true);
+  };
+
+  const handleCloseReviewDialog = () => {
+    setReviewDialogOpen(false);
+    setSelectedReview(null);
+  };
+
+  const handleReviewAdded = () => {
+    enqueueSnackbar('Recenzja została dodana pomyślnie!', { variant: 'success' });
+  };
+
+  const handleAddTrusted = async (userId: number, username: string, tripId: number) => {
+    try {
+      setAddingTrustedUser(userId);
+      await trustedUserService.addTrustedUser(
+        userId,
+        tripId,
+        `Dodano po przejeździe w dniu ${new Date().toLocaleDateString('pl-PL')}`
+      );
+      enqueueSnackbar(`${username} został dodany do zaufanych użytkowników!`, { variant: 'success' });
+    } catch (err: any) {
+      enqueueSnackbar(err.response?.data?.error || 'Nie udało się dodać do zaufanych', { variant: 'error' });
+    } finally {
+      setAddingTrustedUser(null);
+    }
   };
 
   const getStatusChip = (status: string) => {
@@ -204,6 +244,44 @@ export const History: React.FC = () => {
                         <strong>Pasażerowie:</strong> {trip.bookings?.length || 0}
                       </Typography>
                     </Box>
+                    {trip.bookings && trip.bookings.length > 0 && (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {trip.bookings.slice(0, 3).map((booking) => (
+                          <Box key={booking.id} sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Star />}
+                              onClick={() => handleOpenReviewDialog(
+                                trip.id || 0,
+                                booking.passenger,
+                                booking.passenger_username,
+                                booking.id || undefined,
+                                `${trip.start_location} → ${trip.end_location}`
+                              )}
+                              sx={{ textTransform: 'none' }}
+                            >
+                              Oceń {booking.passenger_username}
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              startIcon={<PersonAdd />}
+                              onClick={() => handleAddTrusted(
+                                booking.passenger,
+                                booking.passenger_username,
+                                trip.id || 0
+                              )}
+                              disabled={addingTrustedUser === booking.passenger}
+                              sx={{ textTransform: 'none' }}
+                            >
+                              Dodaj do zaufanych
+                            </Button>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
                   </Box>
                 </Paper>
               ))}
@@ -266,12 +344,68 @@ export const History: React.FC = () => {
                       </Typography>
                     )}
                   </Box>
+                  
+                  {(booking.status === 'paid' || booking.status === 'accepted') && booking.trip_details && (
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<Star />}
+                        onClick={() => {
+                          const trip = booking.trip_details;
+                          if (trip) {
+                            handleOpenReviewDialog(
+                              trip.id,
+                              (trip.driver_profile as any)?.id || 0,
+                              booking.driver_username || '',
+                              booking.id || undefined,
+                              `${booking.trip_start_location} → ${booking.trip_end_location}`
+                            );
+                          }
+                        }}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Oceń kierowcę
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={<PersonAdd />}
+                        onClick={() => {
+                          const trip = booking.trip_details;
+                          if (trip) {
+                            handleAddTrusted(
+                              (trip.driver_profile as any)?.id || 0,
+                              booking.driver_username || '',
+                              trip.id
+                            );
+                          }
+                        }}
+                        disabled={addingTrustedUser === ((booking.trip_details?.driver_profile as any)?.id || 0)}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Dodaj do zaufanych
+                      </Button>
+                    </Box>
+                  )}
                 </Paper>
               ))}
             </Stack>
           )
         )}
       </Container>
+      
+      {selectedReview && (
+        <AddReviewDialog
+          open={reviewDialogOpen}
+          onClose={handleCloseReviewDialog}
+          onReviewAdded={handleReviewAdded}
+          tripId={selectedReview.tripId}
+          reviewedUserId={selectedReview.userId}
+          reviewedUsername={selectedReview.username}
+          bookingId={selectedReview.bookingId}
+          tripRoute={selectedReview.tripRoute}
+        />
+      )}
     </Box>
   );
 };

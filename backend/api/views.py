@@ -9,8 +9,9 @@ from rest_framework.views import APIView
 from datetime import date, datetime, timedelta
 import logging
 from decimal import Decimal
-from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer, WalletSerializer, TransactionSerializer, MessageSerializer, ReviewSerializer, FriendshipSerializer, TrustedUserSerializer, ReportSerializer
-from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review, Friendship, TrustedUser, Report
+from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer, WalletSerializer, TransactionSerializer, MessageSerializer, ReviewSerializer, FriendshipSerializer, TrustedUserSerializer, ReportSerializer, RecurringTripSerializer, WaitlistSerializer
+from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review, Friendship, TrustedUser, Report, RecurringTrip, Waitlist
+from .weather_service import weather_service
 
 logger = logging.getLogger('api')
 
@@ -577,6 +578,35 @@ class TripViewSet(viewsets.ModelViewSet):
             'notifications_sent': notifications_created,
             'total_passengers': active_bookings.count()
         }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    def weather(self, request, pk=None):
+        """Pobierz prognozę pogody dla przejazdu"""
+        trip = self.get_object()
+        
+        # Użyj start_location jako lokalizacji dla prognozy
+        location = trip.start_location
+        
+        # Dodaj ",PL" jeśli to miasto w Polsce (dla lepszych wyników)
+        if ',' not in location:
+            location = f"{location},PL"
+        
+        # Pobierz prognozę
+        weather_data = weather_service.get_weather_forecast(
+            location=location,
+            date=str(trip.date)
+        )
+        
+        # Dodaj informacje o przejeździe
+        weather_data['trip'] = {
+            'id': trip.id,
+            'start_location': trip.start_location,
+            'end_location': trip.end_location,
+            'date': str(trip.date),
+            'time': str(trip.time) if trip.time else None,
+        }
+        
+        return Response(weather_data)
     
     @action(detail=False, methods=['get'])
     def my_trips(self, request):
@@ -1285,3 +1315,125 @@ class ReportViewSet(viewsets.ModelViewSet):
         }
         
         return Response(stats)
+
+
+class RecurringTripViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania cyklicznymi przejazdami"""
+    serializer_class = RecurringTripSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        return RecurringTrip.objects.filter(driver=user).order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        serializer.save(driver=self.request.user)
+        logger.info(f"User {self.request.user.username} created recurring trip")
+    
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        """Włącz/wyłącz cykliczny przejazd"""
+        recurring_trip = self.get_object()
+        recurring_trip.active = not recurring_trip.active
+        recurring_trip.save()
+        logger.info(f"Recurring trip {pk} active set to {recurring_trip.active}")
+        return Response({'active': recurring_trip.active})
+    
+    @action(detail=True, methods=['post'])
+    def generate_trips(self, request, pk=None):
+        """Generuj przejazdy na podstawie cyklicznego szablonu"""
+        recurring_trip = self.get_object()
+        days = int(request.data.get('days', 30))
+        
+        generated_trips = []
+        current_date = max(
+            recurring_trip.start_date,
+            recurring_trip.last_generated + timedelta(days=1) if recurring_trip.last_generated else recurring_trip.start_date
+        )
+        end_date = current_date + timedelta(days=days)
+        
+        if recurring_trip.end_date and end_date > recurring_trip.end_date:
+            end_date = recurring_trip.end_date
+        
+        while current_date <= end_date:
+            should_create = False
+            
+            if recurring_trip.frequency == 'daily':
+                should_create = True
+            elif recurring_trip.frequency == 'weekly':
+                if current_date.weekday() in recurring_trip.weekdays:
+                    should_create = True
+            elif recurring_trip.frequency == 'biweekly':
+                weeks_diff = (current_date - recurring_trip.start_date).days // 7
+                if weeks_diff % 2 == 0 and current_date.weekday() in recurring_trip.weekdays:
+                    should_create = True
+            elif recurring_trip.frequency == 'monthly':
+                if current_date.day == recurring_trip.start_date.day:
+                    should_create = True
+            
+            if should_create and current_date >= date.today():
+                trip, created = Trip.objects.get_or_create(
+                    driver=recurring_trip.driver,
+                    date=current_date,
+                    time=recurring_trip.time,
+                    start_location=recurring_trip.start_location,
+                    end_location=recurring_trip.end_location,
+                    defaults={
+                        'intermediate_stops': recurring_trip.intermediate_stops,
+                        'available_seats': recurring_trip.available_seats,
+                        'price_per_seat': recurring_trip.price_per_seat,
+                    }
+                )
+                if created:
+                    generated_trips.append(trip.id)
+            
+            current_date += timedelta(days=1)
+        
+        recurring_trip.last_generated = end_date
+        recurring_trip.save()
+        
+        logger.info(f"Generated {len(generated_trips)} trips from recurring trip {pk}")
+        return Response({
+            'generated': len(generated_trips),
+            'trip_ids': generated_trips
+        })
+
+
+class WaitlistViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania listą oczekujących"""
+    serializer_class = WaitlistSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        return Waitlist.objects.filter(passenger=user).order_by('-created_at')
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def perform_create(self, serializer):
+        serializer.save(passenger=self.request.user)
+        logger.info(f"User {self.request.user.username} joined waitlist")
+    
+    @action(detail=False, methods=['get'])
+    def for_trip(self, request):
+        """Lista oczekujących dla konkretnego przejazdu (tylko kierowca)"""
+        trip_id = request.query_params.get('trip_id')
+        if not trip_id:
+            return Response({'error': 'trip_id jest wymagane'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            trip = Trip.objects.get(id=trip_id)
+            if trip.driver != request.user:
+                return Response(
+                    {'error': 'Nie jesteś kierowcą tego przejazdu'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            waitlist = Waitlist.objects.filter(trip=trip).order_by('created_at')
+            serializer = self.get_serializer(waitlist, many=True)
+            return Response(serializer.data)
+        except Trip.DoesNotExist:
+            return Response({'error': 'Przejazd nie istnieje'}, status=status.HTTP_404_NOT_FOUND)

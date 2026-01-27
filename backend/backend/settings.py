@@ -171,3 +171,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+# OpenWeather API Configuration
+# Get your free API key from: https://openweathermap.org/api
+OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')

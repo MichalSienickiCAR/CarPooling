@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Container, Typography, Button, Paper, Avatar, Stack } from '@mui/material';
-import { Search, Logout, Event, AccountBalanceWallet, Person, People, VerifiedUser, History } from '@mui/icons-material';
+import { Search, Logout, Event, AccountBalanceWallet, Person, People, VerifiedUser, History, Star } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 import { Notifications } from './Notifications';
@@ -299,6 +299,43 @@ export const PassengerDashboard: React.FC = () => {
               </Typography>
               <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
                 Zobacz zakończone przejazdy.
+              </Typography>
+            </Paper>
+          </Box>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 3 }}>
+          <Box sx={{ width: { xs: '100%', md: '50%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/reviews')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(255, 193, 7, 0.15)',
+                  border: '2px solid #ffc107',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#ffc107', mb: 2 }}>
+                <Star fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Recenzje
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Zobacz swoje oceny i opinie.
               </Typography>
             </Paper>
           </Box>

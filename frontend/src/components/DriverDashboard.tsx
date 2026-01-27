@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Container, Typography, Button, Paper, Stack, Avatar } from '@mui/material';
-import { Add, ListAlt, Logout, Person, AccountBalanceWallet, People, VerifiedUser, History } from '@mui/icons-material';
+import { Add, ListAlt, Logout, Person, AccountBalanceWallet, People, VerifiedUser, History, Star } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 
@@ -89,7 +89,7 @@ export const DriverDashboard: React.FC = () => {
         </Box>
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} justifyContent="center" alignItems="stretch" sx={{ mb: 3 }}>
-          <Box sx={{ width: { xs: '100%', md: '32%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '24%' } }}>
             <Paper 
               elevation={0} 
               onClick={() => navigate('/trips/add')} 
@@ -124,7 +124,7 @@ export const DriverDashboard: React.FC = () => {
             </Paper>
           </Box>
 
-          <Box sx={{ width: { xs: '100%', md: '32%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '24%' } }}>
             <Paper 
               elevation={0} 
               onClick={() => navigate('/trips/mine')} 
@@ -159,7 +159,42 @@ export const DriverDashboard: React.FC = () => {
             </Paper>
           </Box>
 
-          <Box sx={{ width: { xs: '100%', md: '32%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '24%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/recurring-trips')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(156, 39, 176, 0.15)',
+                  border: '2px solid #9c27b0',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#9c27b0', mb: 2 }}>
+                <ListAlt fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Cykliczne Przejazdy
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Zaplanuj powtarzające się przejazdy.
+              </Typography>
+            </Paper>
+          </Box>
+
+          <Box sx={{ width: { xs: '100%', md: '24%' } }}>
             <Paper 
               elevation={0} 
               onClick={() => navigate('/wallet')} 
@@ -297,6 +332,43 @@ export const DriverDashboard: React.FC = () => {
               </Typography>
               <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
                 Zobacz zakończone przejazdy.
+              </Typography>
+            </Paper>
+          </Box>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 3 }}>
+          <Box sx={{ width: { xs: '100%', md: '50%' } }}>
+            <Paper 
+              elevation={0} 
+              onClick={() => navigate('/reviews')} 
+              sx={{ 
+                p: 4, 
+                borderRadius: '16px', 
+                bgcolor: '#ffffff', 
+                cursor: 'pointer', 
+                transition: 'all 0.3s', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '2px solid #e0e0e0',
+                '&:hover': { 
+                  transform: 'translateY(-8px)', 
+                  boxShadow: '0 12px 24px rgba(255, 193, 7, 0.15)',
+                  border: '2px solid #ffc107',
+                } 
+              }}
+            >
+              <Avatar sx={{ width: 70, height: 70, bgcolor: '#ffc107', mb: 2 }}>
+                <Star fontSize="large" />
+              </Avatar>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+                Recenzje
+              </Typography>
+              <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
+                Zobacz swoje oceny i opinie.
               </Typography>
             </Paper>
           </Box>

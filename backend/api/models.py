@@ -229,14 +229,34 @@ def create_notifications_for_bookings(sender, instance, created, **kwargs):
 	passenger = instance.passenger
     
 	if created:
-		driver_profile = driver.profile
-		if driver_profile.notifications_enabled:
-			Notification.objects.create(
-				user=driver,
-				trip=trip,
-				notification_type='booking_request',
-				message=f"{passenger.username} chce zarezerwować {instance.seats} miejsce/a w przejeździe {trip.start_location} → {trip.end_location}"
-			)
+		# Sprawdź czy pasażer jest zaufany z auto-akceptacją
+		is_auto_accept = TrustedUser.objects.filter(
+			user=driver,
+			trusted_user=passenger,
+			auto_accept=True
+		).exists()
+		
+		if is_auto_accept and instance.status == 'reserved':
+			instance.status = 'accepted'
+			instance.save()
+			# Powiadom pasażera o automatycznej akceptacji
+			if passenger.profile.notifications_enabled:
+				Notification.objects.create(
+					user=passenger,
+					trip=trip,
+					notification_type='booking_accepted',
+					message=f"Twoja rezerwacja w przejeździe {trip.start_location} → {trip.end_location} ({trip.date}) została automatycznie zaakceptowana!"
+				)
+		else:
+			# Normalne powiadomienie dla kierowcy
+			driver_profile = driver.profile
+			if driver_profile.notifications_enabled:
+				Notification.objects.create(
+					user=driver,
+					trip=trip,
+					notification_type='booking_request',
+					message=f"{passenger.username} chce zarezerwować {instance.seats} miejsce/a w przejeździe {trip.start_location} → {trip.end_location}"
+				)
 	else:
 		old_status = _booking_old_status.get(instance.pk)
 		if old_status and old_status != instance.status:
@@ -403,6 +423,7 @@ class TrustedUser(models.Model):
 	trusted_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trusted_user_of', verbose_name='Zaufany użytkownik')
 	trip = models.ForeignKey(Trip, on_delete=models.SET_NULL, null=True, blank=True, related_name='trusted_marks', verbose_name='Przejazd')
 	note = models.TextField(blank=True, verbose_name='Notatka')
+	auto_accept = models.BooleanField(default=False, verbose_name='Automatyczna akceptacja rezerwacji')
 	created_at = models.DateTimeField(auto_now_add=True)
 	
 	class Meta:
@@ -457,3 +478,119 @@ class Report(models.Model):
 	
 	def __str__(self):
 		return f"{self.reporter.username} zgłasza {self.reported_user.username}: {self.get_reason_display()} ({self.get_status_display()})"
+
+
+class RecurringTrip(models.Model):
+	"""Cykliczne przejazdy - szablon do automatycznego generowania przejazdów"""
+	FREQUENCY_CHOICES = [
+		('daily', 'Codziennie'),
+		('weekly', 'Co tydzień'),
+		('biweekly', 'Co dwa tygodnie'),
+		('monthly', 'Co miesiąc'),
+	]
+	
+	WEEKDAY_CHOICES = [
+		(0, 'Poniedziałek'),
+		(1, 'Wtorek'),
+		(2, 'Środa'),
+		(3, 'Czwartek'),
+		(4, 'Piątek'),
+		(5, 'Sobota'),
+		(6, 'Niedziela'),
+	]
+	
+	driver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recurring_trips')
+	start_location = models.CharField(max_length=255, verbose_name='Punkt początkowy')
+	end_location = models.CharField(max_length=255, verbose_name='Punkt docelowy')
+	intermediate_stops = models.JSONField(default=list, blank=True, verbose_name='Punkty pośrednie')
+	time = models.TimeField(verbose_name='Godzina')
+	available_seats = models.PositiveIntegerField(
+		validators=[MinValueValidator(1)],
+		verbose_name='Liczba dostępnych miejsc'
+	)
+	price_per_seat = models.DecimalField(
+		max_digits=10,
+		decimal_places=2,
+		validators=[MinValueValidator(0)],
+		verbose_name='Cena za miejsce'
+	)
+	
+	# Ustawienia cykliczności
+	frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, verbose_name='Częstotliwość')
+	weekdays = models.JSONField(default=list, blank=True, verbose_name='Dni tygodnia (dla weekly)')
+	start_date = models.DateField(verbose_name='Data rozpoczęcia')
+	end_date = models.DateField(null=True, blank=True, verbose_name='Data zakończenia (opcjonalnie)')
+	
+	# Zarządzanie
+	active = models.BooleanField(default=True, verbose_name='Aktywny')
+	last_generated = models.DateField(null=True, blank=True, verbose_name='Ostatnia generacja')
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+	
+	class Meta:
+		verbose_name = 'Cykliczny przejazd'
+		verbose_name_plural = 'Cykliczne przejazdy'
+		ordering = ['-created_at']
+		indexes = [
+			models.Index(fields=['driver', 'active']),
+			models.Index(fields=['start_date', 'end_date']),
+		]
+	
+	def __str__(self):
+		return f"{self.driver.username}: {self.start_location} → {self.end_location} ({self.get_frequency_display()})"
+
+
+class Waitlist(models.Model):
+	"""Lista oczekujących na przejazd"""
+	trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='waitlist')
+	passenger = models.ForeignKey(User, on_delete=models.CASCADE, related_name='waitlist_entries')
+	seats_requested = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+	notified = models.BooleanField(default=False, verbose_name='Powiadomiony')
+	created_at = models.DateTimeField(auto_now_add=True)
+	
+	class Meta:
+		verbose_name = 'Lista oczekujących'
+		verbose_name_plural = 'Listy oczekujących'
+		unique_together = ('trip', 'passenger')
+		ordering = ['created_at']
+		indexes = [
+			models.Index(fields=['trip', 'notified']),
+		]
+	
+	def __str__(self):
+		return f"{self.passenger.username} czeka na {self.trip}"
+
+
+@receiver(post_save, sender=Booking)
+def notify_waitlist_on_cancellation(sender, instance, **kwargs):
+	"""Powiadamia osoby z listy oczekujących gdy rezerwacja zostanie anulowana"""
+	if instance.status == 'cancelled':
+		trip = instance.trip
+		# Sprawdź czy są wolne miejsca
+		occupied_seats = Booking.objects.filter(
+			trip=trip,
+			status__in=['reserved', 'accepted', 'paid']
+		).exclude(id=instance.id).aggregate(
+			total=models.Sum('seats')
+		)['total'] or 0
+		
+		available = trip.available_seats - occupied_seats
+		
+		if available > 0:
+			# Powiadom osoby z listy oczekujących
+			waitlist_entries = Waitlist.objects.filter(
+				trip=trip,
+				notified=False,
+				seats_requested__lte=available
+			).order_by('created_at')
+			
+			for entry in waitlist_entries[:3]:  # Powiadom pierwsze 3 osoby
+				if entry.passenger.profile.notifications_enabled:
+					Notification.objects.create(
+						user=entry.passenger,
+						trip=trip,
+						notification_type='booking_accepted',  # Używamy istniejącego typu
+						message=f"Zwolniło się miejsce w przejeździe {trip.start_location} → {trip.end_location} ({trip.date})! Zarezerwuj teraz."
+					)
+					entry.notified = True
+					entry.save()

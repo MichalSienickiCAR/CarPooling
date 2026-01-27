@@ -207,3 +207,28 @@
     padding: 20px;
   }
 }
+
+.auto-accept-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.auto-accept-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  accent-color: #00aff5;
+}
+
+.auto-accept-label span {
+  user-select: none;
+}
+
+.auto-accept-label:hover {
+  color: #00aff5;
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
@@ -16,10 +16,11 @@ import Wallet from './components/Wallet';
 import { UserProfile } from './components/UserProfile';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
-import { SearchPage } from './components/SearchPage';
 import Friends from './components/Friends';
 import TrustedUsers from './components/TrustedUsers';
 import { History } from './components/History';
+import Reviews from './components/Reviews';
+import RecurringTrips from './components/RecurringTrips';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
 
@@ -132,6 +133,7 @@ function App() {
               <Route path="/friends" element={<Friends />} />
               <Route path="/trusted-users" element={<TrustedUsers />} />
               <Route path="/history" element={<History />} />
+              <Route path="/reviews" element={<Reviews />} />
             </Route>
 
             {/* Driver-only routes */}
@@ -139,6 +141,7 @@ function App() {
               <Route path="/driver" element={<DriverDashboard />} />
               <Route path="/trips/add" element={<AddTrip />} />
               <Route path="/trips/mine" element={<MyTrips />} />
+              <Route path="/recurring-trips" element={<RecurringTrips />} />
             </Route>
 
             {/* Passenger-only routes */}

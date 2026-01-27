@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review, Friendship, TrustedUser, Report
+from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review, Friendship, TrustedUser, Report, RecurringTrip, Waitlist
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -124,6 +124,7 @@ class BookingSerializer(serializers.ModelSerializer):
         try:
             profile = trip.driver.profile
             driver_profile = {
+                'id': trip.driver.id,
                 'username': trip.driver.username,
                 'first_name': trip.driver.first_name if trip.driver.first_name else None,
                 'last_name': trip.driver.last_name if trip.driver.last_name else None,
@@ -131,6 +132,7 @@ class BookingSerializer(serializers.ModelSerializer):
             }
         except UserProfile.DoesNotExist:
             driver_profile = {
+                'id': trip.driver.id,
                 'username': trip.driver.username,
                 'first_name': trip.driver.first_name if trip.driver.first_name else None,
                 'last_name': trip.driver.last_name if trip.driver.last_name else None,
@@ -454,7 +456,7 @@ class TrustedUserSerializer(serializers.ModelSerializer):
         model = TrustedUser
         fields = [
             'id', 'user', 'user_username', 'trusted_user', 'trusted_user_username',
-            'trusted_user_profile', 'trip', 'trip_info', 'note', 'created_at'
+            'trusted_user_profile', 'trip', 'trip_info', 'note', 'auto_accept', 'created_at'
         ]
         read_only_fields = ['id', 'user', 'user_username', 'trusted_user_username', 'created_at']
     
@@ -539,4 +541,98 @@ class ReportSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Opis zgłoszenia jest wymagany.')
         if len(value.strip()) < 10:
             raise serializers.ValidationError('Opis musi zawierać co najmniej 10 znaków.')
-        return value.strip()
+
+
+class RecurringTripSerializer(serializers.ModelSerializer):
+    driver_username = serializers.ReadOnlyField(source='driver.username')
+    intermediate_stops = serializers.JSONField(default=list, required=False)
+    weekdays = serializers.JSONField(default=list, required=False)
+    frequency_display = serializers.CharField(source='get_frequency_display', read_only=True)
+    
+    class Meta:
+        model = RecurringTrip
+        fields = [
+            'id', 'driver', 'driver_username', 'start_location', 'end_location',
+            'intermediate_stops', 'time', 'available_seats', 'price_per_seat',
+            'frequency', 'frequency_display', 'weekdays', 'start_date', 'end_date',
+            'active', 'last_generated', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'driver', 'driver_username', 'last_generated', 'created_at', 'updated_at']
+    
+    def validate(self, data):
+        if data.get('frequency') == 'weekly' and not data.get('weekdays'):
+            raise serializers.ValidationError({
+                'weekdays': 'Dla przejazdów co tydzień musisz wybrać dni tygodnia.'
+            })
+        
+        if data.get('end_date') and data.get('start_date'):
+            if data['end_date'] < data['start_date']:
+                raise serializers.ValidationError({
+                    'end_date': 'Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.'
+                })
+        
+        return data
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get('intermediate_stops') is None:
+            data['intermediate_stops'] = []
+        if data.get('weekdays') is None:
+            data['weekdays'] = []
+        return data
+
+
+class WaitlistSerializer(serializers.ModelSerializer):
+    passenger_username = serializers.ReadOnlyField(source='passenger.username')
+    trip_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Waitlist
+        fields = [
+            'id', 'trip', 'trip_info', 'passenger', 'passenger_username',
+            'seats_requested', 'notified', 'created_at'
+        ]
+        read_only_fields = ['id', 'passenger', 'passenger_username', 'notified', 'created_at']
+    
+    def get_trip_info(self, obj):
+        trip = obj.trip
+        return {
+            'id': trip.id,
+            'start_location': trip.start_location,
+            'end_location': trip.end_location,
+            'date': trip.date,
+            'time': str(trip.time) if trip.time else None,
+            'available_seats': trip.available_seats,
+        }
+    
+    def validate_seats_requested(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Liczba miejsc musi być większa niż 0.')
+        return value
+    
+    def validate(self, data):
+        request = self.context.get('request')
+        trip = data.get('trip')
+        
+        if request and trip:
+            from .models import Booking
+            # Sprawdź czy użytkownik już ma rezerwację
+            existing_booking = Booking.objects.filter(
+                trip=trip,
+                passenger=request.user,
+                status__in=['reserved', 'accepted', 'paid']
+            ).exists()
+            
+            if existing_booking:
+                raise serializers.ValidationError('Masz już rezerwację na ten przejazd.')
+            
+            # Sprawdź czy użytkownik już jest na liście oczekujących
+            existing_waitlist = Waitlist.objects.filter(
+                trip=trip,
+                passenger=request.user
+            ).exists()
+            
+            if existing_waitlist:
+                raise serializers.ValidationError('Już jesteś na liście oczekujących dla tego przejazdu.')
+        
+        return data

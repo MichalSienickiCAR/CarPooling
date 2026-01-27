@@ -563,6 +563,7 @@ export interface TripInfo {
   start_location: string;
   end_location: string;
   date: string;
+  time?: string;
 }
 
 export interface TrustedUser {
@@ -575,6 +576,7 @@ export interface TrustedUser {
   trip?: number;
   trip_info?: TripInfo | null;
   note?: string;
+  auto_accept?: boolean;
   created_at: string;
 }
 
@@ -675,5 +677,64 @@ export const reportService = {
   async getReport(reportId: number): Promise<Report> {
     const response = await api.get(`/reports/${reportId}/`);
     return response.data;
+  },
+};
+
+// Review interfaces
+export interface Review {
+  id: number;
+  reviewer: number;
+  reviewer_username: string;
+  reviewed_user: number;
+  reviewed_user_username: string;
+  trip: number;
+  trip_info: TripInfo;
+  booking?: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export interface CreateReviewData {
+  reviewed_user: number;
+  trip: number;
+  booking?: number;
+  rating: number;
+  comment?: string;
+}
+
+export const reviewService = {
+  async getMyReviews(): Promise<Review[]> {
+    const response = await api.get('/reviews/my_reviews/');
+    return response.data;
+  },
+
+  async getReceivedReviews(): Promise<Review[]> {
+    const response = await api.get('/reviews/received_reviews/');
+    return response.data;
+  },
+
+  async getReviewsByTrip(tripId: number): Promise<Review[]> {
+    const response = await api.get(`/reviews/?trip=${tripId}`);
+    return response.data;
+  },
+
+  async getReviewsByUser(userId: number): Promise<Review[]> {
+    const response = await api.get(`/reviews/?reviewed_user=${userId}`);
+    return response.data;
+  },
+
+  async createReview(data: CreateReviewData): Promise<Review> {
+    const response = await api.post('/reviews/', data);
+    return response.data;
+  },
+
+  async updateReview(reviewId: number, data: Partial<CreateReviewData>): Promise<Review> {
+    const response = await api.patch(`/reviews/${reviewId}/`, data);
+    return response.data;
+  },
+
+  async deleteReview(reviewId: number): Promise<void> {
+    await api.delete(`/reviews/${reviewId}/`);
   },
 };

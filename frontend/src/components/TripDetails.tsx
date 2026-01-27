@@ -16,6 +16,8 @@ import { ArrowBack, Logout, Place, DirectionsCar, Star, SmokingRooms, Pets, Musi
 import { useSnackbar } from 'notistack';
 import { tripService, authService, Trip, trustedUserService } from '../services/api';
 import ReportUser from './ReportUser';
+import WaitlistDialog from './WaitlistDialog';
+import WeatherForecast from './WeatherForecast';
 
 export const TripDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -25,6 +27,7 @@ export const TripDetails: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isTrusted, setIsTrusted] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [openWaitlistDialog, setOpenWaitlistDialog] = useState(false);
 
     useEffect(() => {
         const fetchTrip = async () => {
@@ -169,6 +172,7 @@ export const TripDetails: React.FC = () => {
                                 <Typography variant="h4" fontWeight="bold" color="primary">{trip.price_per_seat} zł</Typography>
                             </Box>
                         </Paper>
+                        {trip && trip.id && <WeatherForecast tripId={trip.id} />}
                         <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#fff', border: '1px solid #e0e0e0' }}>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Udogodnienia i zasady</Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
@@ -216,6 +220,23 @@ export const TripDetails: React.FC = () => {
                                 >
                                     {trip.available_seats > 0 ? 'Rezerwuj miejsce' : 'Brak miejsc'}
                                 </Button>
+                                {trip.available_seats === 0 && (
+                                    <Button
+                                        variant="outlined"
+                                        fullWidth
+                                        size="large"
+                                        onClick={() => setOpenWaitlistDialog(true)}
+                                        sx={{
+                                            borderRadius: '30px',
+                                            py: 1.5,
+                                            textTransform: 'none',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bold',
+                                        }}
+                                    >
+                                        Zapisz się na listę oczekujących
+                                    </Button>
+                                )}
                                 <Stack direction="row" spacing={1}>
                                     <Button
                                         variant="outlined"
@@ -271,6 +292,18 @@ export const TripDetails: React.FC = () => {
                     onClose={() => setShowReportModal(false)}
                     onSuccess={() => {
                         enqueueSnackbar('Zgłoszenie zostało wysłane', { variant: 'success' });
+                    }}
+                />
+            )}
+
+            {trip && trip.id && (
+                <WaitlistDialog
+                    open={openWaitlistDialog}
+                    tripId={trip.id}
+                    maxSeats={trip.available_seats}
+                    onClose={() => setOpenWaitlistDialog(false)}
+                    onSuccess={() => {
+                        enqueueSnackbar('Zapisano na listę oczekujących', { variant: 'success' });
                     }}
                 />
             )}

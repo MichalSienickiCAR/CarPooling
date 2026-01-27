@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TripViewSet, TripSearchView, UserProfileView, UserDetailsView, FavoriteRouteViewSet, TripTemplateViewSet, NotificationViewSet, MyBookingsView, BookingHistoryView, WalletView, TransactionListView, MessageViewSet, ReviewViewSet, FriendshipViewSet, TrustedUserViewSet, ReportViewSet
+from .views import TripViewSet, TripSearchView, UserProfileView, UserDetailsView, FavoriteRouteViewSet, TripTemplateViewSet, NotificationViewSet, MyBookingsView, BookingHistoryView, WalletView, TransactionListView, MessageViewSet, ReviewViewSet, FriendshipViewSet, TrustedUserViewSet, ReportViewSet, RecurringTripViewSet, WaitlistViewSet
 
 router = DefaultRouter()
 router.register(r'trips', TripViewSet, basename='trip')
@@ -12,6 +12,8 @@ router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'friendships', FriendshipViewSet, basename='friendship')
 router.register(r'trusted-users', TrustedUserViewSet, basename='trusted-user')
 router.register(r'reports', ReportViewSet, basename='report')
+router.register(r'recurring-trips', RecurringTripViewSet, basename='recurring-trip')
+router.register(r'waitlist', WaitlistViewSet, basename='waitlist')
 
 urlpatterns = [
     path('trips/search/', TripSearchView.as_view(), name='trip-search'),

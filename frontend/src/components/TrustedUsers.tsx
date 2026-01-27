@@ -37,6 +37,18 @@ const TrustedUsers: React.FC = () => {
     }
   };
 
+  const handleToggleAutoAccept = async (trustedUserId: number, autoAccept: boolean) => {
+    try {
+      await trustedUserService.updateTrustedUser(trustedUserId, { auto_accept: autoAccept } as any);
+      setTrustedUsers((prev) =>
+        prev.map((tu) => (tu.id === trustedUserId ? { ...tu, auto_accept: autoAccept } : tu))
+      );
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Nie udało się zaktualizować ustawień');
+    }
+  };
+
   const renderUserAvatar = (profile: { avatar?: string | null; username: string }) => {
     if (profile.avatar) {
       return <img src={profile.avatar} alt={profile.username} className="user-avatar" />;
@@ -103,6 +115,14 @@ const TrustedUsers: React.FC = () => {
                 <p className="added-date">
                   Dodano: {new Date(trustedUser.created_at).toLocaleDateString()}
                 </p>
+                <label className="auto-accept-label">
+                  <input
+                    type="checkbox"
+                    checked={trustedUser.auto_accept || false}
+                    onChange={(e) => handleToggleAutoAccept(trustedUser.id, e.target.checked)}
+                  />
+                  <span>Automatyczna akceptacja rezerwacji</span>
+                </label>
               </div>
               <div className="trusted-user-actions">
                 <button
