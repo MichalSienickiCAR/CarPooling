@@ -46,12 +46,18 @@ const validationSchema = yup.object({
   start_location: yup.string(),
   end_location: yup.string(),
   date: yup.string(),
+  max_price: yup
+    .number()
+    .typeError('Cena musi być liczbą')
+    .min(0, 'Cena nie może być ujemna')
+    .nullable(),
 });
 
 interface SearchFormData {
   start_location: string;
   end_location: string;
   date: string;
+  max_price?: number | null;
 }
 
 export const SearchTrips: React.FC = () => {
@@ -64,6 +70,7 @@ export const SearchTrips: React.FC = () => {
   const [favoriteRoutes, setFavoriteRoutes] = useState<FavoriteRoute[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
 
   const [passengerCount, setPassengerCount] = useState(1);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -100,6 +107,7 @@ export const SearchTrips: React.FC = () => {
       start_location: '',
       end_location: '',
       date: '',
+      max_price: undefined,
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -118,13 +126,19 @@ export const SearchTrips: React.FC = () => {
           params.append('date', selectedDate.format('YYYY-MM-DD'));
         }
         const data = await tripService.searchTrips(params.toString());
-        const filteredBySeats = data.filter((trip: Trip) => trip.available_seats >= passengerCount);
-        setTrips(filteredBySeats);
-        if (filteredBySeats.length === 0) {
+        let result = data.filter((trip: Trip) => trip.available_seats >= passengerCount);
+        if (values.max_price != null && values.max_price !== undefined && !Number.isNaN(values.max_price)) {
+          result = result.filter((trip: Trip) => Number(trip.price_per_seat) <= values.max_price!);
+          setMaxPrice(values.max_price);
+        } else {
+          setMaxPrice(null);
+        }
+        setTrips(result);
+        if (result.length === 0) {
           if (data.length === 0) {
             enqueueSnackbar('Nie znaleziono przejazdów spełniających kryteria.', { variant: 'info' });
           } else {
-            enqueueSnackbar(`Znaleziono ${data.length} przejazdów, ale żaden nie ma wystarczającej liczby miejsc (szukasz ${passengerCount} miejsc).`, { variant: 'warning' });
+            enqueueSnackbar(`Znaleziono ${data.length} przejazdów, ale żaden nie spełnia filtrów (miejsca/cena).`, { variant: 'warning' });
           }
         }
       } catch (error: any) {
@@ -144,7 +158,11 @@ export const SearchTrips: React.FC = () => {
     return trips.filter(trip => trip.date === selectedDateStr);
   };
 
-  const filteredTrips = getFilteredTripsByDate();
+  const filteredTripsByDate = getFilteredTripsByDate();
+  const filteredTrips =
+    maxPrice != null
+      ? filteredTripsByDate.filter((trip) => Number(trip.price_per_seat) <= maxPrice)
+      : filteredTripsByDate;
   const sortedTrips = [...filteredTrips].sort((a, b) => {
     if (sortBy === 'price') return a.price_per_seat - b.price_per_seat;
     if (sortBy === 'time') return a.time.localeCompare(b.time);
@@ -618,6 +636,26 @@ export const SearchTrips: React.FC = () => {
             </Paper>
             )}
             
+            <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', bgcolor: '#ffffff', border: '1px solid #e0e0e0', mb: 3 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#424242', mb: 2 }}>
+                Filtry
+              </Typography>
+              <TextField
+                label="Maksymalna cena za osobę (zł)"
+                type="number"
+                fullWidth
+                size="small"
+                value={formik.values.max_price ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const num = value === '' ? null : Number(value);
+                  formik.setFieldValue('max_price', num);
+                }}
+                sx={{ mb: 2 }}
+                inputProps={{ min: 0 }}
+              />
+            </Paper>
+
             <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', bgcolor: '#ffffff', border: '1px solid #e0e0e0' }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#424242', mb: 2 }}>Sortuj według</Typography>
               <RadioGroup value={sortBy} onChange={(e) => setSortBy(e.target.value)}>

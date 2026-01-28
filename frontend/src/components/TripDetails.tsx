@@ -18,6 +18,7 @@ import { tripService, authService, Trip, trustedUserService } from '../services/
 import ReportUser from './ReportUser';
 import WaitlistDialog from './WaitlistDialog';
 import WeatherForecast from './WeatherForecast';
+import RouteMap from './RouteMap';
 
 export const TripDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -172,6 +173,12 @@ export const TripDetails: React.FC = () => {
                                 <Typography variant="h4" fontWeight="bold" color="primary">{trip.price_per_seat} zł</Typography>
                             </Box>
                         </Paper>
+                        {/* Mapa trasy przejazdu (PT2025NFCP-61 / dodatkowy task) */}
+                        <RouteMap
+                            startLocation={trip.start_location}
+                            endLocation={trip.end_location}
+                            intermediateStops={trip.intermediate_stops || []}
+                        />
                         {trip && trip.id && <WeatherForecast tripId={trip.id} />}
                         <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#fff', border: '1px solid #e0e0e0' }}>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Udogodnienia i zasady</Typography>

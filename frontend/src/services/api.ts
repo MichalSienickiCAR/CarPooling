@@ -14,7 +14,7 @@ api.interceptors.request.use((config) => {
   // If a stale/invalid token is present in localStorage it can cause the server
   // to attempt authentication and return 401 before the view's AllowAny
   // permission is evaluated.
-  const skipAuthPaths = ['/token/', '/token/refresh/', '/user/register/'];
+  const skipAuthPaths = ['/token/', '/token/refresh/', '/user/register/', '/auth/google/', '/auth/google/callback/'];
   const url = config.url || '';
   const shouldSkip = skipAuthPaths.some((p) => url.endsWith(p));
   if (shouldSkip) return config;

@@ -1476,23 +1476,15 @@ class GoogleAuthCallbackView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Wymień kod na token
+        # Wymień kod na token + pobierz userinfo (w jednym kroku)
         token_data = GoogleAuthService.exchange_code_for_token(code)
-        if not token_data:
-            return Response(
-                {'error': 'Nie udało się uzyskać tokenu'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Pobierz dane użytkownika
-        access_token = token_data.get('access_token')
-        user_info = GoogleAuthService.get_google_user_info(access_token)
-
-        if not user_info:
-            return Response(
-                {'error': 'Nie udało się pobrać danych użytkownika'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        user_info = {
+            'email': token_data.get('email'),
+            'first_name': token_data.get('first_name'),
+            'last_name': token_data.get('last_name'),
+            'picture': token_data.get('picture'),
+            'google_id': token_data.get('google_id'),
+        }
 
         # Utwórz lub pobierz użytkownika
         try:

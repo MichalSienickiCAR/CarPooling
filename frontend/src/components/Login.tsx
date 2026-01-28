@@ -15,6 +15,7 @@ import { LockOutlined } from '@mui/icons-material';
 import { authService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import { GoogleLoginButton } from './GoogleLoginButton';
 
 const validationSchema = yup.object({
   username: yup
@@ -162,6 +163,8 @@ export const Login: React.FC = () => {
             >
               Zaloguj się
             </Button>
+
+            <GoogleLoginButton />
             <Box sx={{ 
               textAlign: 'center',
               mt: 2

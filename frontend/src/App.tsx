@@ -23,6 +23,7 @@ import Reviews from './components/Reviews';
 import RecurringTrips from './components/RecurringTrips';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
+import { GoogleCallback } from './components/GoogleCallback';
 
 const theme = createTheme({
   palette: {
@@ -119,6 +120,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
             {/* Public homepage */}
             <Route path="/" element={<LandingPage />} />
