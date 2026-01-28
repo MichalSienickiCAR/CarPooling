@@ -1,6 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TripViewSet, TripSearchView, UserProfileView, UserDetailsView, FavoriteRouteViewSet, TripTemplateViewSet, NotificationViewSet, MyBookingsView, BookingHistoryView, WalletView, TransactionListView, MessageViewSet, ReviewViewSet, FriendshipViewSet, TrustedUserViewSet, ReportViewSet, RecurringTripViewSet, WaitlistViewSet
+from .views import TripViewSet, TripSearchView, UserProfileView, UserDetailsView, FavoriteRouteViewSet, \
+    TripTemplateViewSet, NotificationViewSet, MyBookingsView, BookingHistoryView, WalletView, TransactionListView, \
+    MessageViewSet, ReviewViewSet, FriendshipViewSet, TrustedUserViewSet, ReportViewSet, RecurringTripViewSet, \
+    WaitlistViewSet, GoogleAuthCallbackView, GoogleAuthURLView
 
 router = DefaultRouter()
 router.register(r'trips', TripViewSet, basename='trip')
@@ -24,4 +27,6 @@ urlpatterns = [
     path('wallet/', WalletView.as_view(), name='wallet'),
     path('transactions/', TransactionListView.as_view(), name='transactions'),
     path('', include(router.urls)),
+path('auth/google/', GoogleAuthURLView.as_view(), name='google-auth-url'),
+    path('auth/google/callback/', GoogleAuthCallbackView.as_view(), name='google-auth-callback'),
 ]

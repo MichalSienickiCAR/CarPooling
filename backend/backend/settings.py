@@ -175,3 +175,8 @@ CORS_ALLOW_CREDENTIALS = True
 # OpenWeather API Configuration
 # Get your free API key from: https://openweathermap.org/api
 OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
+
+# Google OAuth Configuration
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
+GOOGLE_OAUTH_REDIRECT_URI = os.environ.get('GOOGLE_OAUTH_REDIRECT_URI', 'http://localhost:3000/auth/google/callback')

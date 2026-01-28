@@ -1437,3 +1437,78 @@ class WaitlistViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Trip.DoesNotExist:
             return Response({'error': 'Przejazd nie istnieje'}, status=status.HTTP_404_NOT_FOUND)
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from backend.google_auth import GoogleAuthService
+
+
+class GoogleAuthURLView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        """Zwraca URL do autoryzacji Google"""
+        from django.conf import settings
+        auth_url = (
+            f"https://accounts.google.com/o/oauth2/v2/auth?"
+            f"client_id={settings.GOOGLE_OAUTH_CLIENT_ID}&"
+            f"redirect_uri={settings.GOOGLE_OAUTH_REDIRECT_URI}&"
+            f"response_type=code&"
+            f"scope=openid email profile&"
+            f"access_type=offline"
+        )
+        return Response({'auth_url': auth_url})
+
+
+class GoogleAuthCallbackView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Obsługuje callback z Google OAuth"""
+        code = request.data.get('code')
+
+        if not code:
+            return Response(
+                {'error': 'Brak kodu autoryzacyjnego'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Wymień kod na token
+        token_data = GoogleAuthService.exchange_code_for_token(code)
+        if not token_data:
+            return Response(
+                {'error': 'Nie udało się uzyskać tokenu'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Pobierz dane użytkownika
+        access_token = token_data.get('access_token')
+        user_info = GoogleAuthService.get_google_user_info(access_token)
+
+        if not user_info:
+            return Response(
+                {'error': 'Nie udało się pobrać danych użytkownika'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Utwórz lub pobierz użytkownika
+        try:
+            result = GoogleAuthService.get_or_create_user(user_info)
+            return Response({
+                'access': result['access'],
+                'refresh': result['refresh'],
+                'user': {
+                    'id': result['user'].id,
+                    'username': result['user'].username,
+                    'email': result['user'].email,
+                }
+            })
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
