@@ -12,9 +12,12 @@ import {
     Chip,
     CircularProgress
 } from '@mui/material';
-import { ArrowBack, Logout, Place, DirectionsCar, Star, SmokingRooms, Pets, MusicNote, AccessTime, CalendarToday } from '@mui/icons-material';
+import { ArrowBack, Logout, Place, DirectionsCar, Star, SmokingRooms, Pets, MusicNote, FavoriteBorder, Favorite, Report } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { tripService, authService, Trip } from '../services/api';
+import { tripService, authService, Trip, trustedUserService } from '../services/api';
+import ReportUser from './ReportUser';
+import WaitlistDialog from './WaitlistDialog';
+import WeatherForecast from './WeatherForecast';
 
 export const TripDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -22,6 +25,9 @@ export const TripDetails: React.FC = () => {
     const { enqueueSnackbar } = useSnackbar();
     const [trip, setTrip] = useState<Trip | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isTrusted, setIsTrusted] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [openWaitlistDialog, setOpenWaitlistDialog] = useState(false);
 
     useEffect(() => {
         const fetchTrip = async () => {
@@ -29,8 +35,12 @@ export const TripDetails: React.FC = () => {
             try {
                 const data = await tripService.getTrip(id);
                 setTrip(data);
+                // Sprawdź czy kierowca jest zaufany
+                if (data.driver) {
+                    const trusted = await trustedUserService.checkTrusted(data.driver);
+                    setIsTrusted(trusted);
+                }
             } catch (error) {
-                console.error('Error fetching trip:', error);
                 enqueueSnackbar('Nie udało się pobrać szczegółów przejazdu.', { variant: 'error' });
             } finally {
                 setLoading(false);
@@ -46,17 +56,29 @@ export const TripDetails: React.FC = () => {
 
     const handleBook = async () => {
         if (!trip?.id) return;
-        
         try {
             await tripService.createBooking(trip.id, 1);
             enqueueSnackbar('Rezerwacja została utworzona! Kierowca otrzyma powiadomienie.', { variant: 'success' });
-            // Odśwież dane przejazdu, żeby zobaczyć aktualną liczbę dostępnych miejsc
             const updatedTrip = await tripService.getTrip(trip.id);
             setTrip(updatedTrip);
-            // Przekieruj do strony z moimi rezerwacjami (można dodać później)
-            // navigate('/my-bookings');
         } catch (error: any) {
             const errorMessage = error.response?.data?.detail || 'Nie udało się utworzyć rezerwacji.';
+            enqueueSnackbar(errorMessage, { variant: 'error' });
+        }
+    };
+
+    const handleToggleTrusted = async () => {
+        if (!trip?.driver) return;
+        try {
+            if (isTrusted) {
+                enqueueSnackbar('Aby usunąć użytkownika z zaufanych, przejdź do listy zaufanych użytkowników', { variant: 'info' });
+            } else {
+                await trustedUserService.addTrustedUser(trip.driver, Number(id));
+                setIsTrusted(true);
+                enqueueSnackbar('Użytkownik dodany do zaufanych!', { variant: 'success' });
+            }
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.detail || 'Wystąpił błąd';
             enqueueSnackbar(errorMessage, { variant: 'error' });
         }
     };
@@ -84,35 +106,34 @@ export const TripDetails: React.FC = () => {
 
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
-            {/* Navbar */}
             <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#e0e0e0', mb: 4 }}>
-                <Typography
-                    variant="h5"
-                    sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer', ml: 4 }}
-                    onClick={() => navigate('/')}
+                <Typography 
+                    variant="h5" 
+                    sx={{ 
+                        fontWeight: 'bold', 
+                        color: '#000', 
+                        cursor: 'pointer', 
+                        ml: 4 
+                    }} 
+                    onClick={() => {
+                        const isAuthenticated = !!localStorage.getItem('token');
+                        navigate(isAuthenticated ? '/dashboard' : '/');
+                    }}
                 >
                     Sheero
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, mr: 4 }}>
-                    <Button color="inherit" onClick={() => navigate(-1)} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
-                        Wróć
-                    </Button>
-                    <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
-                        Wyloguj
-                    </Button>
+                    <Button color="inherit" onClick={() => navigate(-1)} startIcon={<ArrowBack />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wróć</Button>
+                    <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ textTransform: 'none', fontWeight: 'bold' }}>Wyloguj</Button>
                 </Box>
             </Box>
 
             <Container maxWidth="lg" sx={{ pb: 8 }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={4}>
-
-                    {/* Lewa kolumna: Szczegóły trasy */}
                     <Box sx={{ width: { xs: '100%', md: '65%' } }}>
                         <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#f5f5f5', mb: 4 }}>
                             <Typography variant="h4" fontWeight="bold" gutterBottom>{trip.date}</Typography>
-
                             <Box sx={{ mt: 4 }}>
-                                {/* Start */}
                                 <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                         <Typography variant="h6" fontWeight="bold">{trip.time.substring(0, 5)}</Typography>
@@ -123,8 +144,6 @@ export const TripDetails: React.FC = () => {
                                         <Typography variant="body2" color="textSecondary">Miejsce zbiórki: Centrum</Typography>
                                     </Box>
                                 </Box>
-
-                                {/* Przystanki (jeśli są) */}
                                 {trip.intermediate_stops && trip.intermediate_stops.map((stop, index) => (
                                     <Box key={index} sx={{ display: 'flex', gap: 2, mb: 3 }}>
                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -136,11 +155,9 @@ export const TripDetails: React.FC = () => {
                                         </Box>
                                     </Box>
                                 ))}
-
-                                {/* Koniec */}
                                 <Box sx={{ display: 'flex', gap: 2 }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <Typography variant="body1" color="textSecondary" sx={{ visibility: 'hidden' }}>00:00</Typography> {/* Placeholder wys */}
+                                        <Typography variant="body1" color="textSecondary" sx={{ visibility: 'hidden' }}>00:00</Typography>
                                         <Place color="error" />
                                     </Box>
                                     <Box>
@@ -149,16 +166,13 @@ export const TripDetails: React.FC = () => {
                                     </Box>
                                 </Box>
                             </Box>
-
                             <Divider sx={{ my: 4 }} />
-
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Typography variant="h5" fontWeight="bold">Do zapłaty dla kierowcy</Typography>
                                 <Typography variant="h4" fontWeight="bold" color="primary">{trip.price_per_seat} zł</Typography>
                             </Box>
                         </Paper>
-
-                        {/* Zasady i udogodnienia (Statyczne na razie) */}
+                        {trip && trip.id && <WeatherForecast tripId={trip.id} />}
                         <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#fff', border: '1px solid #e0e0e0' }}>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Udogodnienia i zasady</Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
@@ -167,22 +181,14 @@ export const TripDetails: React.FC = () => {
                                 <Chip icon={<MusicNote />} label="Muzyka: Rock" variant="outlined" />
                                 <Chip icon={<DirectionsCar />} label="Maks. 2 osoby" variant="outlined" />
                             </Stack>
-                            <Typography variant="body1" sx={{ mt: 3, color: '#757575', lineHeight: 1.8 }}>
-                                Jadę bezpośrednio, bez zbędnych postojów. Proszę o punktualność. Mam miejsce na średni bagaż.
-                            </Typography>
+                            <Typography variant="body1" sx={{ mt: 3, color: '#757575', lineHeight: 1.8 }}>Jadę bezpośrednio, bez zbędnych postojów. Proszę o punktualność. Mam miejsce na średni bagaż.</Typography>
                         </Paper>
                     </Box>
-
-                    {/* Prawa kolumna: Kierowca i Rezerwacja */}
                     <Box sx={{ width: { xs: '100%', md: '35%' } }}>
                         <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', border: '1px solid #eee', position: 'sticky', top: 20 }}>
                             <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>Twój kierowca</Typography>
-
                             <Box display="flex" alignItems="center" gap={2} mb={2}>
-                                <Avatar
-                                    src={driver_profile?.avatar || undefined}
-                                    sx={{ width: 64, height: 64, bgcolor: '#c62828', fontSize: '24px' }}
-                                >
+                                <Avatar src={driver_profile?.avatar || undefined} sx={{ width: 64, height: 64, bgcolor: '#c62828', fontSize: '24px' }}>
                                     {driverName[0]?.toUpperCase()}
                                 </Avatar>
                                 <Box>
@@ -194,38 +200,113 @@ export const TripDetails: React.FC = () => {
                                     </Box>
                                 </Box>
                             </Box>
-
-                            <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>
-                                Doświadczony kierowca, jeżdżę tą trasą regularnie. Lubię rozmawiać, ale szanuję też ciszę.
-                            </Typography>
-
-                            <Button
-                                variant="contained"
-                                fullWidth
-                                size="large"
-                                onClick={handleBook}
-                                disabled={trip.available_seats === 0}
-                                sx={{
-                                    borderRadius: '30px',
-                                    bgcolor: '#c62828',
-                                    py: 1.5,
-                                    textTransform: 'none',
-                                    fontSize: '1.1rem',
-                                    fontWeight: 'bold',
-                                    '&:hover': { bgcolor: '#b71c1c' }
-                                }}
-                            >
-                                {trip.available_seats > 0 ? 'Rezerwuj miejsce' : 'Brak miejsc'}
-                            </Button>
-
-                            <Box mt={2} textAlign="center">
-                                <Typography variant="caption" color="textSecondary">Brak opłat rezerwacyjnych online</Typography>
-                            </Box>
+                            <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>Doświadczony kierowca, jeżdżę tą trasą regularnie. Lubię rozmawiać, ale szanuję też ciszę.</Typography>
+                            <Stack spacing={2}>
+                                <Button 
+                                    variant="contained" 
+                                    fullWidth 
+                                    size="large" 
+                                    onClick={handleBook} 
+                                    disabled={trip.available_seats === 0} 
+                                    sx={{ 
+                                        borderRadius: '30px', 
+                                        bgcolor: '#c62828', 
+                                        py: 1.5, 
+                                        textTransform: 'none', 
+                                        fontSize: '1.1rem', 
+                                        fontWeight: 'bold', 
+                                        '&:hover': { bgcolor: '#b71c1c' } 
+                                    }}
+                                >
+                                    {trip.available_seats > 0 ? 'Rezerwuj miejsce' : 'Brak miejsc'}
+                                </Button>
+                                {trip.available_seats === 0 && (
+                                    <Button
+                                        variant="outlined"
+                                        fullWidth
+                                        size="large"
+                                        onClick={() => setOpenWaitlistDialog(true)}
+                                        sx={{
+                                            borderRadius: '30px',
+                                            py: 1.5,
+                                            textTransform: 'none',
+                                            fontSize: '1rem',
+                                            fontWeight: 'bold',
+                                        }}
+                                    >
+                                        Zapisz się na listę oczekujących
+                                    </Button>
+                                )}
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        variant="outlined"
+                                        fullWidth
+                                        startIcon={isTrusted ? <Favorite /> : <FavoriteBorder />}
+                                        onClick={handleToggleTrusted}
+                                        sx={{
+                                            borderRadius: '30px',
+                                            textTransform: 'none',
+                                            borderColor: isTrusted ? '#c62828' : '#ccc',
+                                            color: isTrusted ? '#c62828' : '#666',
+                                            '&:hover': {
+                                                borderColor: '#c62828',
+                                                bgcolor: 'rgba(198, 40, 40, 0.04)'
+                                            }
+                                        }}
+                                    >
+                                        {isTrusted ? 'Zaufany' : 'Dodaj do zaufanych'}
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<Report />}
+                                        onClick={() => setShowReportModal(true)}
+                                        sx={{
+                                            borderRadius: '30px',
+                                            textTransform: 'none',
+                                            borderColor: '#ccc',
+                                            color: '#666',
+                                            minWidth: 'fit-content',
+                                            px: 2,
+                                            '&:hover': {
+                                                borderColor: '#f44336',
+                                                color: '#f44336',
+                                                bgcolor: 'rgba(244, 67, 54, 0.04)'
+                                            }
+                                        }}
+                                    >
+                                        Zgłoś
+                                    </Button>
+                                </Stack>
+                            </Stack>
+                            <Box mt={2} textAlign="center"><Typography variant="caption" color="textSecondary">Brak opłat rezerwacyjnych online</Typography></Box>
                         </Paper>
                     </Box>
-
                 </Stack>
             </Container>
+            
+            {showReportModal && trip?.driver && (
+                <ReportUser
+                    reportedUserId={trip.driver}
+                    reportedUsername={driver_username || 'Kierowca'}
+                    tripId={Number(id)}
+                    onClose={() => setShowReportModal(false)}
+                    onSuccess={() => {
+                        enqueueSnackbar('Zgłoszenie zostało wysłane', { variant: 'success' });
+                    }}
+                />
+            )}
+
+            {trip && trip.id && (
+                <WaitlistDialog
+                    open={openWaitlistDialog}
+                    tripId={trip.id}
+                    maxSeats={trip.available_seats}
+                    onClose={() => setOpenWaitlistDialog(false)}
+                    onSuccess={() => {
+                        enqueueSnackbar('Zapisano na listę oczekujących', { variant: 'success' });
+                    }}
+                />
+            )}
         </Box>
     );
 };

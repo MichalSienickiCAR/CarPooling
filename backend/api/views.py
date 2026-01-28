@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
-from rest_framework import generics, viewsets, status
+from django.db.models import Q
+from django.utils import timezone
+from rest_framework import generics, viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -7,8 +9,9 @@ from rest_framework.views import APIView
 from datetime import date, datetime, timedelta
 import logging
 from decimal import Decimal
-from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer, WalletSerializer, TransactionSerializer
-from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction
+from .serializers import UserSerializer, TripSerializer, BookingSerializer, UserProfileSerializer, FavoriteRouteSerializer, TripTemplateSerializer, NotificationSerializer, WalletSerializer, TransactionSerializer, MessageSerializer, ReviewSerializer, FriendshipSerializer, TrustedUserSerializer, ReportSerializer, RecurringTripSerializer, WaitlistSerializer
+from .models import Trip, Booking, UserProfile, FavoriteRoute, TripTemplate, Notification, Wallet, Transaction, Message, Review, Friendship, TrustedUser, Report, RecurringTrip, Waitlist
+from .weather_service import weather_service
 
 logger = logging.getLogger('api')
 
@@ -35,13 +38,11 @@ class UserProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     
     def get(self, request):
-        """Pobiera profil użytkownika"""
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile)
         return Response(serializer.data)
     
     def patch(self, request):
-        """Aktualizuje profil (dane osobowe, rola, avatar)"""
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
@@ -51,19 +52,78 @@ class UserProfileView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class UserDetailsView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'Użytkownik nie istnieje.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile_data = UserProfileSerializer(profile).data
+        
+        from django.db.models import Avg, Count
+        reviews_data = Review.objects.filter(reviewed_user=user).aggregate(
+            average_rating=Avg('rating'),
+            total_reviews=Count('id')
+        )
+        
+        trips_as_driver = Trip.objects.filter(driver=user).count()
+        trips_as_passenger = Booking.objects.filter(
+            passenger=user,
+            status__in=['accepted', 'paid']
+        ).count()
+        
+        recent_reviews = Review.objects.filter(reviewed_user=user).order_by('-created_at')[:5]
+        reviews_list = []
+        for review in recent_reviews:
+            reviews_list.append({
+                'id': review.id,
+                'reviewer_username': review.reviewer.username,
+                'rating': review.rating,
+                'comment': review.comment,
+                'created_at': review.created_at.isoformat(),
+                'trip_route': f"{review.trip.start_location} → {review.trip.end_location}",
+            })
+        
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'profile': profile_data,
+            'statistics': {
+                'average_rating': round(reviews_data['average_rating'] or 0, 2),
+                'total_reviews': reviews_data['total_reviews'] or 0,
+                'trips_as_driver': trips_as_driver,
+                'trips_as_passenger': trips_as_passenger,
+                'total_trips': trips_as_driver + trips_as_passenger,
+            },
+            'recent_reviews': reviews_list,
+        })
+
+
 class TripViewSet(viewsets.ModelViewSet):
     queryset = Trip.objects.all()
     serializer_class = TripSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Dla akcji 'my_trips' używamy własnego querysetu w metodzie my_trips
-        # Więc tutaj nie filtrujemy po akcji
+        # Dla akcji które potrzebują dostępu do wszystkich przejazdów (np. complete_trip, cancel)
+        # nie filtrujemy po dacie
+        if self.action in ['retrieve', 'update', 'partial_update', 'destroy', 'complete_trip', 
+                           'cancel', 'passengers', 'accept_booking', 'reject_booking', 
+                           'cancel_booking', 'create_booking', 'pay_booking', 'notify_passengers']:
+            return Trip.objects.all()
         
-        # Dla listy przejazdów pokazujemy tylko przyszłe (włącznie z dzisiaj)
+        # Dla listy i wyszukiwania pokazujemy tylko przyszłe przejazdy z wolnymi miejscami
         queryset = Trip.objects.filter(date__gte=date.today())
-        
-        # Filtrowanie po parametrach query
         start_location = self.request.query_params.get('start_location', None)
         end_location = self.request.query_params.get('end_location', None)
         trip_date = self.request.query_params.get('date', None)
@@ -75,18 +135,32 @@ class TripViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(end_location__icontains=end_location)
         
         if trip_date:
-            # Filtrujemy przejazdy od wybranej daty wzwyż (nie tylko dokładnie w tym dniu)
             queryset = queryset.filter(date__gte=trip_date)
         
-        # Filtrujemy tylko przejazdy z dostępnymi miejscami
-        # Używamy prostszego filtru - sprawdzamy czy available_seats > 0
-        # (rzeczywista dostępność jest sprawdzana w create_booking)
         queryset = queryset.filter(available_seats__gt=0)
         
         return queryset.order_by('date', 'time')
 
     def create(self, request, *args, **kwargs):
-        """Override create to add better error handling"""
+        # Sprawdź czy użytkownik ma rolę kierowcy
+        try:
+            user_profile = request.user.profile
+            if user_profile.preferred_role != 'driver':
+                logger.warning(
+                    f"User {request.user.username} (role: {user_profile.preferred_role}) "
+                    f"attempted to create a trip but is not a driver"
+                )
+                return Response(
+                    {'detail': 'Tylko użytkownicy z rolą kierowcy mogą dodawać przejazdy.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except UserProfile.DoesNotExist:
+            logger.error(f"User {request.user.username} has no profile")
+            return Response(
+                {'detail': 'Profil użytkownika nie istnieje.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         logger.info(f"Creating trip for user {request.user.username}")
         logger.info(f"Request data: {request.data}")
         serializer = self.get_serializer(data=request.data)
@@ -112,7 +186,6 @@ class TripViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def passengers(self, request, pk=None):
-        """Zwraca listę pasażerów dla danego przejazdu"""
         trip = self.get_object()
         if trip.driver != request.user:
             logger.warning(
@@ -130,25 +203,37 @@ class TripViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def create_booking(self, request, pk=None):
-        """Tworzy rezerwację miejsca w przejeździe (pasażer)"""
-        trip = self.get_object()
+        # Sprawdź czy użytkownik ma rolę pasażera
+        try:
+            user_profile = request.user.profile
+            if user_profile.preferred_role != 'passenger':
+                logger.warning(
+                    f"User {request.user.username} (role: {user_profile.preferred_role}) "
+                    f"attempted to create a booking but is not a passenger"
+                )
+                return Response(
+                    {'detail': 'Tylko użytkownicy z rolą pasażera mogą rezerwować miejsca.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except UserProfile.DoesNotExist:
+            logger.error(f"User {request.user.username} has no profile")
+            return Response(
+                {'detail': 'Profil użytkownika nie istnieje.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        # Sprawdź czy użytkownik nie jest kierowcą tego przejazdu
+        trip = self.get_object()
         if trip.driver == request.user:
             return Response(
                 {'detail': 'Nie możesz zarezerwować miejsca w swoim własnym przejeździe.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Sprawdź czy użytkownik już ma rezerwację w tym przejeździe
         existing_booking = Booking.objects.filter(trip=trip, passenger=request.user).first()
         if existing_booking and existing_booking.status != 'cancelled':
             return Response(
                 {'detail': 'Masz już rezerwację w tym przejeździe.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Pobierz liczbę miejsc z requestu (domyślnie 1)
         seats = request.data.get('seats', 1)
         try:
             seats = int(seats)
@@ -162,25 +247,18 @@ class TripViewSet(viewsets.ModelViewSet):
                 {'detail': 'Nieprawidłowa liczba miejsc.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Sprawdź dostępność miejsc
         total_reserved = sum(b.seats for b in trip.bookings.filter(status__in=['reserved', 'accepted']))
         if total_reserved + seats > trip.available_seats:
             return Response(
                 {'detail': f'Brak wystarczającej liczby miejsc. Dostępne: {trip.available_seats - total_reserved}.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Sprawdź czy przejazd nie jest w przeszłości
         if trip.date < date.today():
             return Response(
                 {'detail': 'Nie można zarezerwować miejsca w przejeździe z przeszłości.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Utwórz rezerwację
         if existing_booking and existing_booking.status == 'cancelled':
-            # Jeśli była anulowana rezerwacja, zaktualizuj ją
             existing_booking.seats = seats
             existing_booking.status = 'reserved'
             existing_booking.save()
@@ -192,7 +270,6 @@ class TripViewSet(viewsets.ModelViewSet):
                 seats=seats,
                 status='reserved'
             )
-        
         logger.info(
             f"Booking created: Trip ID={trip.id}, Passenger={request.user.username} (ID: {request.user.id}), "
             f"Seats={seats}, Status=reserved"
@@ -202,21 +279,18 @@ class TripViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def accept_booking(self, request, pk=None):
-        """Akceptuje rezerwację (tylko kierowca)"""
         trip = self.get_object()
         if trip.driver != request.user:
             return Response(
                 {'detail': 'Nie masz uprawnień do akceptowania rezerwacji w tym przejeździe.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
         booking_id = request.data.get('booking_id')
         if not booking_id:
             return Response(
                 {'detail': 'Brak ID rezerwacji.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
         try:
             booking = Booking.objects.get(id=booking_id, trip=trip)
             if booking.status != 'reserved':
@@ -224,18 +298,14 @@ class TripViewSet(viewsets.ModelViewSet):
                     {'detail': 'Rezerwacja nie może być zaakceptowana (nieprawidłowy status).'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Sprawdź czy są dostępne miejsca
             total_reserved = sum(b.seats for b in trip.bookings.filter(status='accepted'))
             if total_reserved + booking.seats > trip.available_seats:
                 return Response(
                     {'detail': 'Brak wystarczającej liczby miejsc.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
             booking.status = 'accepted'
             booking.save()
-            
             logger.info(f"Booking {booking_id} accepted by driver {request.user.username}")
             serializer = BookingSerializer(booking)
             return Response(serializer.data)
@@ -247,21 +317,18 @@ class TripViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def reject_booking(self, request, pk=None):
-        """Odrzuca rezerwację (tylko kierowca)"""
         trip = self.get_object()
         if trip.driver != request.user:
             return Response(
                 {'detail': 'Nie masz uprawnień do odrzucania rezerwacji w tym przejeździe.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
         booking_id = request.data.get('booking_id')
         if not booking_id:
             return Response(
                 {'detail': 'Brak ID rezerwacji.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
         try:
             booking = Booking.objects.get(id=booking_id, trip=trip)
             if booking.status == 'cancelled':
@@ -269,10 +336,8 @@ class TripViewSet(viewsets.ModelViewSet):
                     {'detail': 'Rezerwacja jest już anulowana.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
             booking.status = 'cancelled'
             booking.save()
-            
             logger.info(f"Booking {booking_id} rejected by driver {request.user.username}")
             serializer = BookingSerializer(booking)
             return Response(serializer.data)
@@ -284,34 +349,25 @@ class TripViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def cancel_booking(self, request, pk=None):
-        """Anuluje rezerwację (tylko pasażer - właściciel rezerwacji)"""
         trip = self.get_object()
-        
         booking_id = request.data.get('booking_id')
         if not booking_id:
             return Response(
                 {'detail': 'Brak ID rezerwacji.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
         try:
             booking = Booking.objects.get(id=booking_id, trip=trip, passenger=request.user)
-            
-            # Sprawdź czy rezerwacja może być anulowana
             if booking.status == 'cancelled':
                 return Response(
                     {'detail': 'Rezerwacja jest już anulowana.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Jeśli rezerwacja była opłacona, zwróć środki
             if booking.status == 'paid':
                 wallet, _ = Wallet.objects.get_or_create(user=request.user)
                 total_amount = booking.seats * trip.price_per_seat
                 wallet.balance += total_amount
                 wallet.save()
-                
-                # Utwórz transakcję zwrotu
                 Transaction.objects.create(
                     user=request.user,
                     transaction_type='refund',
@@ -321,10 +377,8 @@ class TripViewSet(viewsets.ModelViewSet):
                     description=f'Zwrot za anulowaną rezerwację: {trip.start_location} → {trip.end_location}'
                 )
                 logger.info(f"Refund for cancelled booking {booking_id}: {total_amount} zł")
-            
             booking.status = 'cancelled'
             booking.save()
-            
             logger.info(f"Booking {booking_id} cancelled by passenger {request.user.username}")
             serializer = BookingSerializer(booking)
             return Response(serializer.data)
@@ -336,64 +390,45 @@ class TripViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def pay_booking(self, request, pk=None):
-        """Płaci za rezerwację (tylko pasażer - właściciel rezerwacji)"""
         trip = self.get_object()
-        
         booking_id = request.data.get('booking_id')
         if not booking_id:
             return Response(
                 {'detail': 'Brak ID rezerwacji.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
         try:
             booking = Booking.objects.get(id=booking_id, trip=trip, passenger=request.user)
-            
-            # Sprawdź czy rezerwacja jest zaakceptowana
             if booking.status != 'accepted':
                 return Response(
                     {'detail': 'Można płacić tylko za zaakceptowane rezerwacje.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Sprawdź czy już opłacone
             if booking.status == 'paid':
                 return Response(
                     {'detail': 'Rezerwacja jest już opłacona.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Sprawdź czy minęło 10h przed przejazdem
             trip_datetime = datetime.combine(trip.date, trip.time or datetime.min.time())
             time_until_trip = trip_datetime - datetime.now()
             hours_until_trip = time_until_trip.total_seconds() / 3600
-            
             if hours_until_trip < 10:
                 return Response(
                     {'detail': f'Płatność możliwa tylko do 10 godzin przed przejazdem. Pozostało {hours_until_trip:.1f} godzin.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Sprawdź saldo portfela
             wallet, _ = Wallet.objects.get_or_create(user=request.user)
             total_amount = booking.seats * trip.price_per_seat
-            
             if wallet.balance < total_amount:
                 return Response(
                     {'detail': f'Niewystarczające środki w portfelu. Wymagane: {total_amount} zł, dostępne: {wallet.balance} zł.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Wykonaj płatność
             wallet.balance -= total_amount
             wallet.save()
-            
-            # Zaktualizuj status rezerwacji
             booking.status = 'paid'
             booking.paid_at = datetime.now()
             booking.save()
-            
-            # Utwórz transakcję płatności
             Transaction.objects.create(
                 user=request.user,
                 transaction_type='payment',
@@ -402,11 +437,9 @@ class TripViewSet(viewsets.ModelViewSet):
                 trip=trip,
                 description=f'Płatność za przejazd: {trip.start_location} → {trip.end_location} ({booking.seats} miejsc)'
             )
-            
             logger.info(f"Payment for booking {booking_id}: {total_amount} zł by {request.user.username}")
             serializer = BookingSerializer(booking)
             return Response(serializer.data, status=status.HTTP_200_OK)
-            
         except Booking.DoesNotExist:
             return Response(
                 {'detail': 'Rezerwacja nie została znaleziona lub nie masz do niej uprawnień.'},
@@ -415,7 +448,6 @@ class TripViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
-        """Anuluje przejazd (tylko kierowca)"""
         trip = self.get_object()
         if trip.driver != request.user:
             logger.warning(
@@ -434,76 +466,156 @@ class TripViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def complete_trip(self, request, pk=None):
-        """Oznacza przejazd jako zakończony i wypłaca środki kierowcy (z prowizją 5%)"""
         trip = self.get_object()
         if trip.driver != request.user:
             return Response(
                 {'detail': 'Nie masz uprawnień do zakończenia tego przejazdu.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        # Sprawdź czy przejazd już się odbył (data w przeszłości lub dzisiaj)
         if trip.date > date.today():
             return Response(
                 {'detail': 'Nie można zakończyć przejazdu, który jeszcze się nie odbył.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Znajdź wszystkie opłacone rezerwacje
-        paid_bookings = trip.bookings.filter(status='paid')
-        
-        if not paid_bookings.exists():
+        if trip.completed:
             return Response(
-                {'detail': 'Brak opłaconych rezerwacji do wypłaty.'},
+                {'detail': 'Ten przejazd jest już oznaczony jako zakończony.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        paid_bookings = trip.bookings.filter(status='paid')
+        total_driver_amount = Decimal('0')
+        if paid_bookings.exists():
+            PLATFORM_FEE = Decimal('0.05')
+            driver_wallet, _ = Wallet.objects.get_or_create(user=trip.driver)
+            for booking in paid_bookings:
+                total_payment = booking.seats * trip.price_per_seat
+                driver_amount = total_payment * (1 - PLATFORM_FEE)
+                driver_wallet.balance += driver_amount
+                total_driver_amount += driver_amount
+                Transaction.objects.create(
+                    user=trip.driver,
+                    transaction_type='driver_payment',
+                    amount=driver_amount,
+                    booking=booking,
+                    trip=trip,
+                    description=f'Wypłata za przejazd: {trip.start_location} → {trip.end_location} ({booking.seats} miejsc, prowizja 5%)'
+                )
+            driver_wallet.save()
+        trip.completed = True
+        trip.completed_at = timezone.now()
+        trip.save()
+        logger.info(
+            f"Trip {trip.id} completed: Driver {trip.driver.username} "
+            f"{f'received {total_driver_amount} zł (from {paid_bookings.count()} paid bookings)' if paid_bookings.exists() else 'no paid bookings'}"
+        )
+        if paid_bookings.exists():
+            return Response({
+                'detail': f'Przejazd zakończony. Wypłacono {total_driver_amount} zł do portfela kierowcy.',
+                'amount': str(total_driver_amount),
+                'bookings_count': paid_bookings.count()
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'detail': 'Przejazd oznaczony jako zakończony. Brak opłaconych rezerwacji do wypłaty.',
+                'amount': '0',
+                'bookings_count': 0
+            }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'])
+    def notify_passengers(self, request, pk=None):
+        """Wyślij powiadomienie do wszystkich pasażerów tego przejazdu"""
+        trip = self.get_object()
+        
+        # Sprawdź czy użytkownik jest kierowcą tego przejazdu
+        if trip.driver != request.user:
+            return Response(
+                {'detail': 'Nie masz uprawnień do wysyłania powiadomień dla tego przejazdu.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Pobierz wiadomość z requestu
+        message = request.data.get('message', '').strip()
+        if not message:
+            return Response(
+                {'detail': 'Wiadomość nie może być pusta.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Prowizja platformy: 5%
-        PLATFORM_FEE = Decimal('0.05')
-        driver_wallet, _ = Wallet.objects.get_or_create(user=trip.driver)
-        total_driver_amount = Decimal('0')
+        # Pobierz wszystkich pasażerów z aktywnymi rezerwacjami (reserved, accepted, paid)
+        active_bookings = trip.bookings.filter(
+            status__in=['reserved', 'accepted', 'paid']
+        )
         
-        for booking in paid_bookings:
-            total_payment = booking.seats * trip.price_per_seat
-            driver_amount = total_payment * (1 - PLATFORM_FEE)  # 95% dla kierowcy
-            
-            driver_wallet.balance += driver_amount
-            total_driver_amount += driver_amount
-            
-            # Utwórz transakcję wypłaty dla kierowcy
-            Transaction.objects.create(
-                user=trip.driver,
-                transaction_type='driver_payment',
-                amount=driver_amount,
-                booking=booking,
-                trip=trip,
-                description=f'Wypłata za przejazd: {trip.start_location} → {trip.end_location} ({booking.seats} miejsc, prowizja 5%)'
+        if not active_bookings.exists():
+            return Response(
+                {'detail': 'Brak pasażerów z aktywnymi rezerwacjami w tym przejeździe.'},
+                status=status.HTTP_400_BAD_REQUEST
             )
         
-        driver_wallet.save()
+        # Utwórz powiadomienia dla każdego pasażera
+        notifications_created = 0
+        for booking in active_bookings:
+            passenger = booking.passenger
+            profile = passenger.profile
+            
+            # Sprawdź czy pasażer ma włączone powiadomienia
+            if profile.notifications_enabled:
+                Notification.objects.create(
+                    user=passenger,
+                    trip=trip,
+                    notification_type='driver_message',
+                    message=f"Wiadomość od kierowcy ({trip.start_location} → {trip.end_location}, {trip.date}): {message}"
+                )
+                notifications_created += 1
         
         logger.info(
-            f"Trip {trip.id} completed: Driver {trip.driver.username} received {total_driver_amount} zł "
-            f"(from {paid_bookings.count()} paid bookings)"
+            f"Driver {request.user.username} sent notification to {notifications_created} passengers "
+            f"for trip {trip.id}: {message[:50]}"
         )
         
         return Response({
-            'detail': f'Przejazd zakończony. Wypłacono {total_driver_amount} zł do portfela kierowcy.',
-            'amount': str(total_driver_amount),
-            'bookings_count': paid_bookings.count()
+            'detail': f'Powiadomienie wysłane do {notifications_created} pasażera/ów.',
+            'notifications_sent': notifications_created,
+            'total_passengers': active_bookings.count()
         }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    def weather(self, request, pk=None):
+        """Pobierz prognozę pogody dla przejazdu"""
+        trip = self.get_object()
+        
+        # Użyj start_location jako lokalizacji dla prognozy
+        location = trip.start_location
+        
+        # Dodaj ",PL" jeśli to miasto w Polsce (dla lepszych wyników)
+        if ',' not in location:
+            location = f"{location},PL"
+        
+        # Pobierz prognozę
+        weather_data = weather_service.get_weather_forecast(
+            location=location,
+            date=str(trip.date)
+        )
+        
+        # Dodaj informacje o przejeździe
+        weather_data['trip'] = {
+            'id': trip.id,
+            'start_location': trip.start_location,
+            'end_location': trip.end_location,
+            'date': str(trip.date),
+            'time': str(trip.time) if trip.time else None,
+        }
+        
+        return Response(weather_data)
     
     @action(detail=False, methods=['get'])
     def my_trips(self, request):
-        """Zwraca wszystkie przejazdy zalogowanego kierowcy (bez filtrowania po dacie)"""
         try:
-            # Pobieramy wszystkie przejazdy kierowcy, nie tylko przyszłe
             trips = Trip.objects.filter(driver=request.user).order_by('-date', '-time')
             logger.info(
                 f"Driver {request.user.username} (ID: {request.user.id}) viewed their trips: "
                 f"{trips.count()} trips found"
             )
-            # Logujemy szczegóły przejazdów dla debugowania
             for trip in trips:
                 logger.info(
                     f"  - Trip ID: {trip.id}, Route: {trip.start_location} → {trip.end_location}, "
@@ -518,144 +630,75 @@ class TripViewSet(viewsets.ModelViewSet):
                 {'detail': f'Błąd podczas pobierania przejazdów: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    @action(detail=False, methods=['get'])
+    def history(self, request):
+        """Historia zakończonych przejazdów kierowcy"""
+        try:
+            trips = Trip.objects.filter(
+                driver=request.user,
+                completed=True
+            ).order_by('-completed_at', '-date', '-time')
+            
+            logger.info(
+                f"Driver {request.user.username} viewed trip history: "
+                f"{trips.count()} completed trips found"
+            )
+            serializer = self.get_serializer(trips, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error in history endpoint: {str(e)}", exc_info=True)
+            return Response(
+                {'detail': f'Błąd podczas pobierania historii: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class TripSearchView(generics.ListAPIView):
-    """
-    Widok do wyszukiwania przejazdów dla pasażerów.
-    Filtruje po miejscu startu, celu i dacie.
-    Wyklucza przejazdy użytkownika (kierowca nie może rezerwować miejsca w swoim przejeździe).
-    
-    Parametry query (wszystkie opcjonalne):
-    - start_location: część nazwy miejsca startowego
-    - end_location: część nazwy miejsca docelowego  
-    - date: data w formacie YYYY-MM-DD (opcjonalne)
-    """
     serializer_class = TripSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        # Zaczynamy od wszystkich przejazdów, wykluczając przejazdy zalogowanego użytkownika
-        # NIE filtrujemy po dacie na początku - pozwalamy na elastyczne wyszukiwanie
         queryset = Trip.objects.exclude(driver=self.request.user)
-        
         start_location = self.request.query_params.get('start_location', None)
         end_location = self.request.query_params.get('end_location', None)
         trip_date = self.request.query_params.get('date', None)
-        
-        # Logowanie parametrów wyszukiwania
         logger.info(
             f"Trip search initiated by {self.request.user.username} (ID: {self.request.user.id}): "
             f"start_location={start_location}, end_location={end_location}, date={trip_date}"
         )
         initial_count = queryset.count()
-        logger.info(f"Initial queryset count (excluding user's trips): {initial_count}")
-        
-        # Logujemy wszystkie przejazdy przed filtrowaniem (dla debugowania)
-        if initial_count > 0:
-            logger.info("All trips before filtering:")
-            for trip in queryset[:10]:  # Loguj max 10 pierwszych
-                logger.info(
-                    f"  - Trip ID: {trip.id}, Driver: {trip.driver.username} (ID: {trip.driver.id}), "
-                    f"Route: {trip.start_location} → {trip.end_location}, "
-                    f"Date: {trip.date}, Seats: {trip.available_seats}"
-                )
-        else:
-            logger.warning(f"No trips found in database (excluding user {self.request.user.username})")
-            # Sprawdzamy czy w ogóle są przejazdy w bazie
-            all_trips_count = Trip.objects.count()
-            logger.info(f"Total trips in database: {all_trips_count}")
-            if all_trips_count > 0:
-                logger.info("All trips in database:")
-                for trip in Trip.objects.all()[:5]:
-                    logger.info(
-                        f"  - Trip ID: {trip.id}, Driver: {trip.driver.username} (ID: {trip.driver.id}), "
-                        f"Route: {trip.start_location} → {trip.end_location}, Date: {trip.date}"
-                    )
-        
-        # Filtrowanie po lokalizacji - case insensitive, częściowe dopasowanie
-        # Jeśli pole jest puste, nie filtrujemy
         if start_location and start_location.strip():
             queryset = queryset.filter(start_location__icontains=start_location.strip())
-            logger.info(f"After start_location filter ('{start_location.strip()}'): {queryset.count()}")
-        
         if end_location and end_location.strip():
             queryset = queryset.filter(end_location__icontains=end_location.strip())
-            logger.info(f"After end_location filter ('{end_location.strip()}'): {queryset.count()}")
-        
-        # Filtrowanie po dacie
         today = date.today()
-        logger.info(f"Today's date: {today}")
-        
         if trip_date and trip_date.strip():
             try:
                 from datetime import datetime
                 search_date = datetime.strptime(trip_date.strip(), '%Y-%m-%d').date()
-                logger.info(f"Search date from user: {search_date}, Today: {today}")
-                
-                # Jeśli data jest w przeszłości, pokazujemy tylko przyszłe przejazdy
                 if search_date < today:
-                    logger.warning(f"Search date {search_date} is in the past! Showing only future trips.")
                     queryset = queryset.filter(date__gte=today)
-                    logger.info(f"After filtering out past trips: {queryset.count()}")
                 else:
-                    # Jeśli data jest dzisiaj lub w przyszłości, pokazujemy przejazdy od tej daty wzwyż
-                    # (nie dokładnie po dacie, ale >= data, żeby użytkownik widział wszystkie przyszłe przejazdy)
                     queryset = queryset.filter(date__gte=search_date)
-                    logger.info(f"After date filter (>= {search_date}): {queryset.count()}")
-                    
-            except ValueError as e:
-                # Jeśli format daty jest nieprawidłowy, ignorujemy filtr daty i pokazujemy tylko przyszłe
-                logger.warning(f"Invalid date format: {trip_date}, error: {e}")
+            except ValueError:
                 queryset = queryset.filter(date__gte=today)
-                logger.info(f"Invalid date format, showing only future trips (>= {today}): {queryset.count()}")
         else:
-            # Jeśli nie podano daty, pokazujemy przejazdy na najbliższy miesiąc (od dzisiaj do miesiąc w przód)
             from datetime import timedelta
             month_from_now = today + timedelta(days=30)
             queryset = queryset.filter(date__gte=today, date__lte=month_from_now)
-            logger.info(f"No date provided, showing trips for next month ({today} to {month_from_now}): {queryset.count()}")
-        
-        # Filtrujemy tylko przejazdy z dostępnymi miejscami
-        before_seats_filter = queryset.count()
         queryset = queryset.filter(available_seats__gt=0)
-        after_seats_filter = queryset.count()
-        logger.info(f"After available_seats filter (> 0): {before_seats_filter} -> {after_seats_filter}")
-        
-        final_count = queryset.count()
-        logger.info(
-            f"Trip search completed: {final_count} trips found for user {self.request.user.username} "
-            f"(excluding user's own trips)"
-        )
-        
-        # Logujemy znalezione przejazdy
-        if final_count > 0:
-            logger.info("Found trips:")
-            for trip in queryset[:5]:  # Loguj max 5 pierwszych
-                logger.info(
-                    f"  - Trip ID: {trip.id}, Route: {trip.start_location} → {trip.end_location}, "
-                    f"Date: {trip.date}, Seats: {trip.available_seats}"
-                )
-        else:
-            logger.warning("No trips found matching search criteria!")
-        
         return queryset.order_by('date', 'time')
 
 
 class FavoriteRouteViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet dla ulubionych tras użytkownika.
-    Użytkownik może tylko zarządzać swoimi własnymi ulubionymi trasami.
-    """
     serializer_class = FavoriteRouteSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Zwraca tylko ulubione trasy zalogowanego użytkownika"""
         return FavoriteRoute.objects.filter(user=self.request.user).order_by('-created_at')
 
     def perform_create(self, serializer):
-        """Automatycznie przypisuje trasę do zalogowanego użytkownika"""
         route = serializer.save(user=self.request.user)
         logger.info(
             f"Favorite route created: User={self.request.user.username} (ID: {self.request.user.id}), "
@@ -665,19 +708,13 @@ class FavoriteRouteViewSet(viewsets.ModelViewSet):
 
 
 class TripTemplateViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet dla szablonów przejazdów kierowcy.
-    Kierowca może tylko zarządzać swoimi własnymi szablonami.
-    """
     serializer_class = TripTemplateSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Zwraca tylko szablony zalogowanego kierowcy"""
         return TripTemplate.objects.filter(driver=self.request.user).order_by('-created_at')
 
     def perform_create(self, serializer):
-        """Automatycznie przypisuje szablon do zalogowanego kierowcy"""
         template = serializer.save(driver=self.request.user)
         logger.info(
             f"Trip template created: Driver={self.request.user.username} (ID: {self.request.user.id}), "
@@ -687,33 +724,27 @@ class TripTemplateViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def create_trip(self, request, pk=None):
-        """Tworzy przejazd na podstawie szablonu"""
         template = self.get_object()
         if template.driver != request.user:
             return Response(
                 {'detail': 'Nie masz uprawnień do użycia tego szablonu.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        # Pobierz datę z requestu (wymagana)
         trip_date = request.data.get('date')
         if not trip_date:
             return Response(
                 {'detail': 'Data jest wymagana do utworzenia przejazdu.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Utwórz przejazd na podstawie szablonu
         trip_data = {
             'start_location': template.start_location,
             'end_location': template.end_location,
             'intermediate_stops': template.intermediate_stops,
             'date': trip_date,
-            'time': template.time or '08:00',  # Domyślna godzina jeśli nie ustawiona
+            'time': template.time or '08:00',
             'available_seats': template.available_seats,
             'price_per_seat': template.price_per_seat,
         }
-        
         trip_serializer = TripSerializer(data=trip_data)
         if trip_serializer.is_valid():
             trip = trip_serializer.save(driver=request.user)
@@ -722,170 +753,23 @@ class TripTemplateViewSet(viewsets.ModelViewSet):
                 f"Driver={request.user.username}"
             )
             return Response(trip_serializer.data, status=status.HTTP_201_CREATED)
-            return Response(trip_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(trip_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    ViewSet dla powiadomień użytkownika.
-    Tylko odczyt - powiadomienia są tworzone automatycznie przez system.
-    """
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Zwraca tylko powiadomienia zalogowanego użytkownika"""
         queryset = Notification.objects.filter(user=self.request.user)
-        
-        # Filtrowanie po statusie przeczytania
         read_filter = self.request.query_params.get('read', None)
         if read_filter is not None:
             read_bool = read_filter.lower() == 'true'
             queryset = queryset.filter(read=read_bool)
-        
         return queryset.order_by('-created_at')
 
-
-class MyBookingsView(generics.ListAPIView):
-    """
-    Widok do pobierania rezerwacji zalogowanego pasażera.
-    Pokazuje wszystkie rezerwacje użytkownika z szczegółami przejazdów.
-    """
-    serializer_class = BookingSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """Zwraca wszystkie rezerwacje zalogowanego użytkownika"""
-        queryset = Booking.objects.filter(passenger=self.request.user)
-        
-        # Filtrowanie po statusie (opcjonalne)
-        status_filter = self.request.query_params.get('status', None)
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-        
-        # Filtrowanie po dacie przejazdu (opcjonalne)
-        date_filter = self.request.query_params.get('date', None)
-        if date_filter:
-            queryset = queryset.filter(trip__date=date_filter)
-        
-        # Domyślnie sortujemy po dacie przejazdu (najbliższe najpierw)
-        return queryset.order_by('trip__date', 'trip__time')
-
-
-class WalletView(APIView):
-    """Endpoint do zarządzania portfelem użytkownika"""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        """Pobiera portfel użytkownika z informacją o oczekujących środkach (dla kierowcy)"""
-        wallet, created = Wallet.objects.get_or_create(user=request.user)
-        serializer = WalletSerializer(wallet)
-        data = serializer.data
-        
-        # Dla kierowcy: oblicz oczekujące środki (z opłaconych rezerwacji, które jeszcze nie zostały wypłacone)
-        pending_amount = Decimal('0')
-        trips_with_pending = []
-        
-        # Znajdź wszystkie przejazdy kierowcy z opłaconymi rezerwacjami, które jeszcze się nie odbyły
-        driver_trips = Trip.objects.filter(
-            driver=request.user,
-            date__gte=date.today()
-        ).prefetch_related('bookings')
-        
-        for trip in driver_trips:
-            paid_bookings = trip.bookings.filter(status='paid')
-            if paid_bookings.exists():
-                trip_total = sum(booking.seats * trip.price_per_seat for booking in paid_bookings)
-                # Prowizja platformy: 5%, więc kierowca otrzyma 95%
-                driver_amount = trip_total * Decimal('0.95')
-                pending_amount += driver_amount
-                trips_with_pending.append({
-                    'trip_id': trip.id,
-                    'route': f"{trip.start_location} → {trip.end_location}",
-                    'date': trip.date.isoformat(),
-                    'amount': str(driver_amount),
-                    'bookings_count': paid_bookings.count()
-                })
-        
-        data['pending_amount'] = str(pending_amount)
-        data['pending_trips'] = trips_with_pending
-        
-        return Response(data)
-    
-    def post(self, request):
-        """Zasila portfel (symulacja BLIK)"""
-        try:
-            amount = request.data.get('amount')
-            logger.info(f"Wallet deposit request from {request.user.username}: amount={amount}, data={request.data}")
-            
-            if not amount:
-                logger.warning(f"Wallet deposit failed: No amount provided by {request.user.username}")
-                return Response(
-                    {'detail': 'Brak kwoty do wpłaty.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            try:
-                amount = Decimal(str(amount))
-                if amount <= 0:
-                    logger.warning(f"Wallet deposit failed: Invalid amount {amount} by {request.user.username}")
-                    return Response(
-                        {'detail': 'Kwota musi być większa od 0.'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            except (ValueError, TypeError) as e:
-                logger.error(f"Wallet deposit failed: Invalid amount format '{amount}' by {request.user.username}: {e}")
-                return Response(
-                    {'detail': 'Nieprawidłowa kwota.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            wallet, created = Wallet.objects.get_or_create(user=request.user)
-            old_balance = wallet.balance
-            wallet.balance += amount
-            wallet.save()
-            
-            # Utwórz transakcję wpłaty
-            transaction = Transaction.objects.create(
-                user=request.user,
-                transaction_type='deposit',
-                amount=amount,
-                description=f'Wpłata przez BLIK (symulacja) - {amount} zł'
-            )
-            
-            logger.info(
-                f"Wallet deposit successful: User {request.user.username}, "
-                f"Amount: {amount} zł, Balance: {old_balance} -> {wallet.balance}"
-            )
-            serializer = WalletSerializer(wallet)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.error(f"Wallet deposit error for {request.user.username}: {str(e)}", exc_info=True)
-            return Response(
-                {'detail': f'Błąd podczas wpłaty: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-class TransactionListView(generics.ListAPIView):
-    """Endpoint do pobierania historii transakcji użytkownika"""
-    serializer_class = TransactionSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """Zwraca wszystkie transakcje zalogowanego użytkownika"""
-        queryset = Transaction.objects.filter(user=self.request.user)
-        
-        # Filtrowanie po typie transakcji (opcjonalne)
-        transaction_type = self.request.query_params.get('type', None)
-        if transaction_type:
-            queryset = queryset.filter(transaction_type=transaction_type)
-        
-        return queryset.order_by('-created_at')
-    
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
-        """Oznacza powiadomienie jako przeczytane"""
         notification = self.get_object()
         if notification.user != request.user:
             return Response(
@@ -895,15 +779,661 @@ class TransactionListView(generics.ListAPIView):
         notification.read = True
         notification.save()
         return Response({'status': 'Powiadomienie oznaczone jako przeczytane'})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_as_read(self, request):
+        Notification.objects.filter(user=request.user, read=False).update(read=True)
+        return Response({'status': 'Wszystkie powiadomienia oznaczone jako przeczytane'})
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        count = Notification.objects.filter(user=request.user, read=False).count()
+        return Response({'count': count})
+
+
+class MyBookingsView(generics.ListAPIView):
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Booking.objects.filter(passenger=self.request.user)
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        date_filter = self.request.query_params.get('date', None)
+        if date_filter:
+            queryset = queryset.filter(trip__date=date_filter)
+        return queryset.order_by('trip__date', 'trip__time')
+
+
+class BookingHistoryView(generics.ListAPIView):
+    """Historia zakończonych rezerwacji pasażera"""
+    serializer_class = BookingSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Booking.objects.filter(
+            passenger=self.request.user,
+            trip__completed=True
+        )
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        logger.info(
+            f"Passenger {self.request.user.username} viewed booking history: "
+            f"{queryset.count()} completed bookings found"
+        )
+        return queryset.order_by('-trip__completed_at', '-trip__date', '-trip__time')
+
+
+class WalletView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        wallet, created = Wallet.objects.get_or_create(user=request.user)
+        serializer = WalletSerializer(wallet)
+        data = serializer.data
+        pending_amount = Decimal('0')
+        trips_with_pending = []
+        driver_trips = Trip.objects.filter(
+            driver=request.user,
+            date__gte=date.today()
+        ).prefetch_related('bookings')
+        for trip in driver_trips:
+            paid_bookings = trip.bookings.filter(status='paid')
+            if paid_bookings.exists():
+                trip_total = sum(booking.seats * trip.price_per_seat for booking in paid_bookings)
+                driver_amount = trip_total * Decimal('0.95')
+                pending_amount += driver_amount
+                trips_with_pending.append({
+                    'trip_id': trip.id,
+                    'route': f"{trip.start_location} → {trip.end_location}",
+                    'date': trip.date.isoformat(),
+                    'amount': str(driver_amount),
+                    'bookings_count': paid_bookings.count()
+                })
+        data['pending_amount'] = str(pending_amount)
+        data['pending_trips'] = trips_with_pending
+        return Response(data)
+    
+    def post(self, request):
+        try:
+            amount = request.data.get('amount')
+            if amount is None or amount == '':
+                return Response({'detail': 'Brak kwoty do wpłaty.'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                # Konwersja przez float dla lepszej kompatybilności
+                amount_float = float(amount)
+                amount = Decimal(str(amount_float))
+                if amount <= 0:
+                    return Response({'detail': 'Kwota musi być większa od 0.'}, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError) as e:
+                return Response({'detail': 'Nieprawidłowa kwota.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            wallet, created = Wallet.objects.get_or_create(user=request.user)
+            wallet.balance += amount
+            wallet.save()
+            
+            Transaction.objects.create(
+                user=request.user,
+                transaction_type='deposit',
+                amount=amount,
+                description=f'Wpłata przez BLIK (symulacja) - {amount} zł'
+            )
+            
+            logger.info(f"Deposit successful for {request.user.username}: {amount} zł")
+            serializer = WalletSerializer(wallet)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Deposit error for {request.user.username}: {str(e)}", exc_info=True)
+            return Response({'detail': f'Błąd podczas wpłaty: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class TransactionListView(generics.ListAPIView):
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Transaction.objects.filter(user=self.request.user)
+        transaction_type = self.request.query_params.get('type', None)
+        if transaction_type:
+            queryset = queryset.filter(transaction_type=transaction_type)
+        return queryset.order_by('-created_at')
+
+
+class MessageViewSet(viewsets.ModelViewSet):
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        user = self.request.user
+        booking_id = self.request.query_params.get('booking', None)
+        
+        if booking_id:
+            try:
+                booking = Booking.objects.get(id=booking_id)
+                if booking.trip.driver != user and booking.passenger != user:
+                    return Message.objects.none()
+                if booking.status not in ['accepted', 'paid']:
+                    return Message.objects.none()
+                return Message.objects.filter(booking=booking).order_by('created_at')
+            except Booking.DoesNotExist:
+                return Message.objects.none()
+        return Message.objects.filter(
+            Q(sender=user) | Q(recipient=user)
+        ).order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        booking_id = self.request.data.get('booking')
+        if not booking_id:
+            raise serializers.ValidationError({'booking': 'Rezerwacja jest wymagana.'})
+        try:
+            booking = Booking.objects.get(id=booking_id)
+        except Booking.DoesNotExist:
+            raise serializers.ValidationError({'booking': 'Rezerwacja nie istnieje.'})
+        user = self.request.user
+        if booking.trip.driver != user and booking.passenger != user:
+            raise serializers.ValidationError({'detail': 'Nie masz uprawnień do wysyłania wiadomości w tej rezerwacji.'})
+        if booking.status not in ['accepted', 'paid']:
+            raise serializers.ValidationError({'detail': 'Możesz wysyłać wiadomości tylko dla zaakceptowanych rezerwacji.'})
+        recipient = booking.passenger if booking.trip.driver == user else booking.trip.driver
+        serializer.save(
+            sender=user,
+            recipient=recipient,
+            booking=booking
+        )
+    
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        message = self.get_object()
+        if message.recipient != request.user:
+            return Response(
+                {'detail': 'Nie masz uprawnień do oznaczania tej wiadomości jako przeczytanej.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        message.read = True
+        message.save()
+        return Response({'status': 'Wiadomość oznaczona jako przeczytana'})
     
     @action(detail=False, methods=['post'])
     def mark_all_as_read(self, request):
-        """Oznacza wszystkie powiadomienia użytkownika jako przeczytane"""
-        Notification.objects.filter(user=request.user, read=False).update(read=True)
-        return Response({'status': 'Wszystkie powiadomienia oznaczone jako przeczytane'})
+        booking_id = request.data.get('booking')
+        if not booking_id:
+            return Response(
+                {'detail': 'ID rezerwacji jest wymagane.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            booking = Booking.objects.get(id=booking_id)
+        except Booking.DoesNotExist:
+            return Response(
+                {'detail': 'Rezerwacja nie istnieje.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        if booking.trip.driver != request.user and booking.passenger != request.user:
+            return Response(
+                {'detail': 'Nie masz uprawnień do tej rezerwacji.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        updated = Message.objects.filter(
+            booking=booking,
+            recipient=request.user,
+            read=False
+        ).update(read=True)
+        return Response({'status': f'Oznaczono {updated} wiadomości jako przeczytane'})
     
     @action(detail=False, methods=['get'])
     def unread_count(self, request):
-        """Zwraca liczbę nieprzeczytanych powiadomień"""
-        count = Notification.objects.filter(user=request.user, read=False).count()
+        booking_id = self.request.query_params.get('booking', None)
+        if booking_id:
+            try:
+                booking = Booking.objects.get(id=booking_id)
+                if booking.trip.driver != request.user and booking.passenger != request.user:
+                    return Response({'count': 0})
+                count = Message.objects.filter(
+                    booking=booking,
+                    recipient=request.user,
+                    read=False
+                ).count()
+            except Booking.DoesNotExist:
+                return Response({'count': 0})
+        else:
+            count = Message.objects.filter(
+                recipient=request.user,
+                read=False
+            ).count()
         return Response({'count': count})
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        user = self.request.user
+        trip_id = self.request.query_params.get('trip', None)
+        reviewed_user_id = self.request.query_params.get('reviewed_user', None)
+        queryset = Review.objects.all()
+        if trip_id:
+            queryset = queryset.filter(trip_id=trip_id)
+        if reviewed_user_id:
+            queryset = queryset.filter(reviewed_user_id=reviewed_user_id)
+        reviewer_filter = self.request.query_params.get('as_reviewer', None)
+        if reviewer_filter == 'true':
+            queryset = queryset.filter(reviewer=user)
+        else:
+            queryset = queryset.filter(reviewed_user=user)
+        return queryset.order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        serializer.save(reviewer=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def my_reviews(self, request):
+        reviews = Review.objects.filter(reviewer=request.user).order_by('-created_at')
+        serializer = self.get_serializer(reviews, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def received_reviews(self, request):
+        reviews = Review.objects.filter(reviewed_user=request.user).order_by('-created_at')
+        serializer = self.get_serializer(reviews, many=True)
+        return Response(serializer.data)
+
+
+class FriendshipViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania znajomościami"""
+    serializer_class = FriendshipSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        user = self.request.user
+        status_filter = self.request.query_params.get('status', None)
+        
+        # Znajomości gdzie użytkownik jest requester lub receiver
+        queryset = Friendship.objects.filter(
+            Q(requester=user) | Q(receiver=user)
+        )
+        
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset.order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Wysyłanie zaproszenia do znajomych"""
+        serializer.save(requester=self.request.user)
+        logger.info(f"User {self.request.user.username} sent friend request")
+    
+    @action(detail=False, methods=['get'])
+    def my_friends(self, request):
+        """Lista zaakceptowanych znajomych"""
+        friendships = Friendship.objects.filter(
+            Q(requester=request.user) | Q(receiver=request.user),
+            status='accepted'
+        )
+        serializer = self.get_serializer(friendships, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def pending_requests(self, request):
+        """Oczekujące zaproszenia (otrzymane)"""
+        friendships = Friendship.objects.filter(
+            receiver=request.user,
+            status='pending'
+        )
+        serializer = self.get_serializer(friendships, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def sent_requests(self, request):
+        """Wysłane zaproszenia"""
+        friendships = Friendship.objects.filter(
+            requester=request.user,
+            status='pending'
+        )
+        serializer = self.get_serializer(friendships, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        """Akceptacja zaproszenia do znajomych"""
+        friendship = self.get_object()
+        
+        if friendship.receiver != request.user:
+            return Response(
+                {'detail': 'Możesz akceptować tylko zaproszenia skierowane do Ciebie.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if friendship.status != 'pending':
+            return Response(
+                {'detail': 'To zaproszenie nie oczekuje na akceptację.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        friendship.status = 'accepted'
+        friendship.save()
+        
+        logger.info(f"User {request.user.username} accepted friend request from {friendship.requester.username}")
+        serializer = self.get_serializer(friendship)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Odrzucenie zaproszenia do znajomych"""
+        friendship = self.get_object()
+        
+        if friendship.receiver != request.user:
+            return Response(
+                {'detail': 'Możesz odrzucać tylko zaproszenia skierowane do Ciebie.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if friendship.status != 'pending':
+            return Response(
+                {'detail': 'To zaproszenie nie oczekuje na odpowiedź.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        friendship.status = 'rejected'
+        friendship.save()
+        
+        logger.info(f"User {request.user.username} rejected friend request from {friendship.requester.username}")
+        serializer = self.get_serializer(friendship)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def block(self, request, pk=None):
+        """Zablokowanie użytkownika"""
+        friendship = self.get_object()
+        
+        if friendship.receiver != request.user and friendship.requester != request.user:
+            return Response(
+                {'detail': 'Nie masz uprawnień do tej akcji.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        friendship.status = 'blocked'
+        friendship.save()
+        
+        logger.info(f"User {request.user.username} blocked user")
+        serializer = self.get_serializer(friendship)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def search_users(self, request):
+        """Wyszukiwanie użytkowników do dodania jako znajomi"""
+        query = request.data.get('query', '').strip()
+        
+        if not query or len(query) < 2:
+            return Response(
+                {'detail': 'Zapytanie musi zawierać co najmniej 2 znaki.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Wyszukaj użytkowników
+        users = User.objects.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        ).exclude(id=request.user.id)[:20]
+        
+        # Sprawdź status znajomości dla każdego użytkownika
+        results = []
+        for user in users:
+            friendship = Friendship.objects.filter(
+                Q(requester=request.user, receiver=user) |
+                Q(requester=user, receiver=request.user)
+            ).first()
+            
+            try:
+                profile = user.profile
+                avatar_url = profile.avatar.url if profile.avatar else None
+            except:
+                avatar_url = None
+            
+            results.append({
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name or None,
+                'last_name': user.last_name or None,
+                'avatar': avatar_url,
+                'friendship_status': friendship.status if friendship else None,
+                'friendship_id': friendship.id if friendship else None,
+            })
+        
+        return Response(results)
+
+
+class TrustedUserViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania zaufanymi użytkownikami"""
+    serializer_class = TrustedUserSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        return TrustedUser.objects.filter(user=self.request.user).order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Dodawanie użytkownika do zaufanych"""
+        serializer.save(user=self.request.user)
+        logger.info(f"User {self.request.user.username} marked user as trusted")
+    
+    @action(detail=False, methods=['get'])
+    def my_trusted(self, request):
+        """Lista moich zaufanych użytkowników"""
+        trusted = self.get_queryset()
+        serializer = self.get_serializer(trusted, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def check_trusted(self, request):
+        """Sprawdź czy użytkownik jest zaufany"""
+        user_id = request.data.get('user_id')
+        
+        if not user_id:
+            return Response(
+                {'detail': 'user_id jest wymagane.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        is_trusted = TrustedUser.objects.filter(
+            user=request.user,
+            trusted_user_id=user_id
+        ).exists()
+        
+        return Response({'is_trusted': is_trusted})
+
+
+class ReportViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania zgłoszeniami"""
+    serializer_class = ReportSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        # Użytkownik widzi tylko swoje zgłoszenia
+        # (Admini mogą widzieć wszystkie - można dodać później)
+        queryset = Report.objects.filter(reporter=user)
+        
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset.order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Tworzenie nowego zgłoszenia"""
+        serializer.save(reporter=self.request.user)
+        logger.info(f"User {self.request.user.username} created a report")
+    
+    @action(detail=False, methods=['get'])
+    def my_reports(self, request):
+        """Moje zgłoszenia"""
+        reports = self.get_queryset()
+        serializer = self.get_serializer(reports, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        """Statystyki zgłoszeń"""
+        reports = self.get_queryset()
+        
+        stats = {
+            'total': reports.count(),
+            'pending': reports.filter(status='pending').count(),
+            'under_review': reports.filter(status='under_review').count(),
+            'resolved': reports.filter(status='resolved').count(),
+            'dismissed': reports.filter(status='dismissed').count(),
+        }
+        
+        return Response(stats)
+
+
+class RecurringTripViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania cyklicznymi przejazdami"""
+    serializer_class = RecurringTripSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        return RecurringTrip.objects.filter(driver=user).order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        serializer.save(driver=self.request.user)
+        logger.info(f"User {self.request.user.username} created recurring trip")
+    
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        """Włącz/wyłącz cykliczny przejazd"""
+        recurring_trip = self.get_object()
+        recurring_trip.active = not recurring_trip.active
+        recurring_trip.save()
+        logger.info(f"Recurring trip {pk} active set to {recurring_trip.active}")
+        return Response({'active': recurring_trip.active})
+    
+    @action(detail=True, methods=['post'])
+    def generate_trips(self, request, pk=None):
+        """Generuj przejazdy na podstawie cyklicznego szablonu"""
+        recurring_trip = self.get_object()
+        days = int(request.data.get('days', 30))
+        
+        generated_trips = []
+        current_date = max(
+            recurring_trip.start_date,
+            recurring_trip.last_generated + timedelta(days=1) if recurring_trip.last_generated else recurring_trip.start_date
+        )
+        end_date = current_date + timedelta(days=days)
+        
+        if recurring_trip.end_date and end_date > recurring_trip.end_date:
+            end_date = recurring_trip.end_date
+        
+        while current_date <= end_date:
+            should_create = False
+            
+            if recurring_trip.frequency == 'daily':
+                should_create = True
+            elif recurring_trip.frequency == 'weekly':
+                if current_date.weekday() in recurring_trip.weekdays:
+                    should_create = True
+            elif recurring_trip.frequency == 'biweekly':
+                weeks_diff = (current_date - recurring_trip.start_date).days // 7
+                if weeks_diff % 2 == 0 and current_date.weekday() in recurring_trip.weekdays:
+                    should_create = True
+            elif recurring_trip.frequency == 'monthly':
+                if current_date.day == recurring_trip.start_date.day:
+                    should_create = True
+            
+            if should_create and current_date >= date.today():
+                trip, created = Trip.objects.get_or_create(
+                    driver=recurring_trip.driver,
+                    date=current_date,
+                    time=recurring_trip.time,
+                    start_location=recurring_trip.start_location,
+                    end_location=recurring_trip.end_location,
+                    defaults={
+                        'intermediate_stops': recurring_trip.intermediate_stops,
+                        'available_seats': recurring_trip.available_seats,
+                        'price_per_seat': recurring_trip.price_per_seat,
+                    }
+                )
+                if created:
+                    generated_trips.append(trip.id)
+            
+            current_date += timedelta(days=1)
+        
+        recurring_trip.last_generated = end_date
+        recurring_trip.save()
+        
+        logger.info(f"Generated {len(generated_trips)} trips from recurring trip {pk}")
+        return Response({
+            'generated': len(generated_trips),
+            'trip_ids': generated_trips
+        })
+
+
+class WaitlistViewSet(viewsets.ModelViewSet):
+    """ViewSet do zarządzania listą oczekujących"""
+    serializer_class = WaitlistSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        return Waitlist.objects.filter(passenger=user).order_by('-created_at')
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def perform_create(self, serializer):
+        serializer.save(passenger=self.request.user)
+        logger.info(f"User {self.request.user.username} joined waitlist")
+    
+    @action(detail=False, methods=['get'])
+    def for_trip(self, request):
+        """Lista oczekujących dla konkretnego przejazdu (tylko kierowca)"""
+        trip_id = request.query_params.get('trip_id')
+        if not trip_id:
+            return Response({'error': 'trip_id jest wymagane'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            trip = Trip.objects.get(id=trip_id)
+            if trip.driver != request.user:
+                return Response(
+                    {'error': 'Nie jesteś kierowcą tego przejazdu'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            waitlist = Waitlist.objects.filter(trip=trip).order_by('created_at')
+            serializer = self.get_serializer(waitlist, many=True)
+            return Response(serializer.data)
+        except Trip.DoesNotExist:
+            return Response({'error': 'Przejazd nie istnieje'}, status=status.HTTP_404_NOT_FOUND)

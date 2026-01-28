@@ -9,14 +9,20 @@ import {
   Typography,
   Link,
   Paper,
+  Avatar,
 } from '@mui/material';
+import { LockOutlined } from '@mui/icons-material';
 import { authService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 
 const validationSchema = yup.object({
-  username: yup.string().required('Username is required'),
-  password: yup.string().required('Password is required'),
+  username: yup
+    .string()
+    .required('Username is required'),
+  password: yup
+    .string()
+    .required('Password is required'),
 });
 
 export const Login: React.FC = () => {
@@ -32,121 +38,152 @@ export const Login: React.FC = () => {
     onSubmit: async (values) => {
       try {
         await authService.login(values.username, values.password);
-
-        try {
-          const profile = await authService.getUserProfile();
-          localStorage.setItem('userRole', profile.preferred_role);
-
-          if (profile.preferred_role === 'driver') {
-            navigate('/driver');
-          } else if (profile.preferred_role === 'passenger') {
-            navigate('/passenger');
-          } else {
-            navigate('/dashboard');
-          }
-        } catch (profileError) {
-          console.warn('Could not fetch user profile:', profileError);
-          navigate('/dashboard');
-        }
-
-        enqueueSnackbar('Logowanie zakończone pomyślnie!', { variant: 'success' });
+        enqueueSnackbar('Logowanie zakończone pomyślnie!', { 
+          variant: 'success',
+        });
+        navigate('/dashboard');
       } catch (error) {
-        enqueueSnackbar('Nieprawidłowa nazwa użytkownika lub hasło.', { variant: 'error' });
+        enqueueSnackbar('Nieprawidłowa nazwa użytkownika lub hasło.', { 
+          variant: 'error',
+        });
         console.error('Login failed:', error);
       }
     },
   });
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
-      {/* Navbar */}
-      <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography
-          variant="h5"
-          sx={{ fontWeight: 'bold', color: '#000', cursor: 'pointer' }}
-          onClick={() => navigate('/')}
+    <Container component="main" maxWidth="xs">
+      <Box
+        sx={{
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <Paper
+          elevation={0}
+          sx={{
+            padding: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            width: '100%',
+            background: '#ffffff',
+            border: '1px solid #e0e0e0',
+            borderRadius: '20px',
+          }}
         >
-          Sheero
-        </Typography>
-        <Button color="inherit" onClick={() => navigate('/register')} sx={{ textTransform: 'none', fontWeight: 'bold' }}>
-          Zarejestruj się
-        </Button>
-      </Box>
-
-      <Container maxWidth="sm" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pb: 8 }}>
-        <Paper elevation={0} sx={{ bgcolor: '#f5f5f5', p: { xs: 3, md: 6 }, borderRadius: '40px', width: '100%' }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', textAlign: 'center', mb: 1 }}>Witaj ponownie</Typography>
-          <Typography variant="body1" sx={{ textAlign: 'center', mb: 4, color: '#757575' }}>Zaloguj się, aby kontynuować</Typography>
-
-          <Box component="form" onSubmit={formik.handleSubmit}>
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ ml: 1, mb: 1, fontWeight: 'bold', color: '#424242' }}>Login</Typography>
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="Wpisz login"
-                name="username"
-                value={formik.values.username}
-                onChange={formik.handleChange}
-                error={formik.touched.username && Boolean(formik.errors.username)}
-                // helperText={formik.touched.username && formik.errors.username}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '20px',
-                    bgcolor: 'white',
-                    '& fieldset': { borderColor: 'transparent' },
-                    '&:hover fieldset': { borderColor: '#e0e0e0' },
-                    '&.Mui-focused fieldset': { borderColor: '#c62828' }
-                  }
-                }}
-              />
-            </Box>
-
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="subtitle2" sx={{ ml: 1, mb: 1, fontWeight: 'bold', color: '#424242' }}>Hasło</Typography>
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="Wpisz hasło"
-                type="password"
-                name="password"
-                value={formik.values.password}
-                onChange={formik.handleChange}
-                error={formik.touched.password && Boolean(formik.errors.password)}
-                // helperText={formik.touched.password && formik.errors.password}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '20px',
-                    bgcolor: 'white',
-                    '& fieldset': { borderColor: 'transparent' },
-                    '&:hover fieldset': { borderColor: '#e0e0e0' },
-                    '&.Mui-focused fieldset': { borderColor: '#c62828' }
-                  }
-                }}
-              />
-            </Box>
-
+          <Avatar sx={{ 
+            m: 1, 
+            bgcolor: '#00aff5',
+            width: 64,
+            height: 64,
+          }}>
+            <LockOutlined fontSize="large" />
+          </Avatar>
+          <Typography 
+            component="h1" 
+            variant="h4"
+            sx={{ 
+              mb: 1,
+              fontWeight: 700,
+              color: '#1a1a1a',
+            }}
+          >
+            Zaloguj się
+          </Typography>
+          <Typography 
+            variant="body1"
+            sx={{ 
+              mb: 4,
+              color: '#666',
+              textAlign: 'center',
+            }}
+          >
+            Witamy z powrotem w Sheero
+          </Typography>
+          <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 1, width: '100%' }}>
+            <TextField
+              margin="normal"
+              fullWidth
+              id="username"
+              name="username"
+              label="Nazwa użytkownika"
+              value={formik.values.username}
+              onChange={formik.handleChange}
+              error={formik.touched.username && Boolean(formik.errors.username)}
+              helperText={formik.touched.username && formik.errors.username}
+              autoComplete="username"
+              autoFocus
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
+            />
+            <TextField
+              margin="normal"
+              fullWidth
+              id="password"
+              name="password"
+              label="Hasło"
+              type="password"
+              value={formik.values.password}
+              onChange={formik.handleChange}
+              error={formik.touched.password && Boolean(formik.errors.password)}
+              helperText={formik.touched.password && formik.errors.password}
+              autoComplete="current-password"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                },
+              }}
+            />
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{
-                bgcolor: '#c62828',
-                borderRadius: '30px',
-                py: 1.5,
-                mt: 1,
-                fontSize: '1.rem',
+              sx={{ 
+                mt: 3, 
+                mb: 2,
+                height: 52,
+                borderRadius: '12px',
+                backgroundColor: '#00aff5',
+                fontSize: '16px',
+                fontWeight: 700,
                 textTransform: 'none',
-                fontWeight: 'bold',
-                boxShadow: 'none',
-                '&:hover': { bgcolor: '#b71c1c', boxShadow: 'none' }
+                boxShadow: '0 4px 12px rgba(0, 175, 245, 0.3)',
+                '&:hover': {
+                  backgroundColor: '#0099d6',
+                  boxShadow: '0 6px 16px rgba(0, 175, 245, 0.4)',
+                }
               }}
             >
               Zaloguj się
             </Button>
+            <Box sx={{ 
+              textAlign: 'center',
+              mt: 2
+            }}>
+              <Link 
+                href="/register" 
+                variant="body2"
+                sx={{
+                  textDecoration: 'none',
+                  color: '#00aff5',
+                  fontWeight: 600,
+                  '&:hover': {
+                    color: '#0099d6',
+                  }
+                }}
+              >
+                Nie masz konta? Zarejestruj się
+              </Link>
+            </Box>
           </Box>
         </Paper>
-      </Container>
-    </Box>
+      </Box>
+    </Container>
   );
 };

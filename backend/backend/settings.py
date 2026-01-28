@@ -25,10 +25,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-)m57m^t+^1sg_$%8n+prmaus!7vz67+o996*y+g@6676ls)eg!')
+SECRET_KEY = 'django-insecure-)m57m^t+^1sg_$%8n+prmaus!7vz67+o996*y+g@6676ls)eg!'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -96,43 +96,33 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+"""
+Local development defaults to SQLite. You can switch to Postgres by
+setting environment variables, e.g. DB_ENGINE=postgres and related DB_* values.
 
-# Database configuration
-# PostgreSQL is the default database for all environments
-# To use SQLite for quick local testing, set USE_SQLITE=True in .env
-USE_SQLITE = os.getenv('USE_SQLITE', 'False') == 'True'
+Supported env variables:
+- DB_ENGINE: 'sqlite' (default) or 'postgres'
+- DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT (for Postgres)
+"""
 
-if USE_SQLITE:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-else:
-    # PostgreSQL configuration
-    # Handle potential encoding issues with password
-    db_password = os.getenv('DB_PASSWORD', '')
-    # Try to decode if it's bytes, otherwise use as string
-    if isinstance(db_password, bytes):
-        try:
-            db_password = db_password.decode('utf-8')
-        except UnicodeDecodeError:
-            # If decoding fails, try latin-1 (more permissive)
-            db_password = db_password.decode('latin-1')
-    
+DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+
+if DB_ENGINE == "postgres":
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('DB_NAME', 'carpooling'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': db_password,
+            'USER': os.getenv('DB_USER', 'carpool'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'ZJ<170yuJ~{>rOx3c_Mq@b$g'),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
-            'OPTIONS': {
-                'client_encoding': 'UTF8',
-            },
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 
@@ -182,66 +172,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# Logging configuration
-LOG_DIR = BASE_DIR / 'logs'
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'filters': {
-        'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
-        },
-    },
-    'handlers': {
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple'
-        },
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': LOG_DIR / 'django.log',
-            'formatter': 'verbose',
-        },
-        'error_file': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': LOG_DIR / 'errors.log',
-            'formatter': 'verbose',
-        },
-    },
-    'root': {
-        'handlers': ['console', 'file'],
-        'level': 'INFO',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'django.request': {
-            'handlers': ['error_file'],
-            'level': 'ERROR',
-            'propagate': False,
-        },
-        'api': {
-            'handlers': ['console', 'file', 'error_file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
-}
+# OpenWeather API Configuration
+# Get your free API key from: https://openweathermap.org/api
+OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
