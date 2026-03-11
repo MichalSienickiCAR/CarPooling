@@ -1,7 +1,7 @@
-# Byte-compiled / optimized / DLL files
+﻿# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 
 # C extensions
 *.so
@@ -24,6 +24,7 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 env/
@@ -31,18 +32,102 @@ venv/
 ENV/
 .venv/
 
-# dotenv
+# dotenv / lokalne sekrety
 .env
 
-# Django stuff:
+# Django / Python app stuff
 *.log
 logs/
 local_settings.py
 db.sqlite3
+db.sqlite3-journal
 media/
 staticfiles/
 
-# Node
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv / poetry / uv / pdm lock files (opcjonalnie)
+#Pipfile.lock
+#uv.lock
+#poetry.lock
+#poetry.toml
+#pdm.lock
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.envrc
+.env.bak/
+venv.bak/
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Node / frontend
 frontend/node_modules/
 frontend/build/
 npm-debug.log*
@@ -59,9 +144,6 @@ package-lock.json
 # OS files
 .DS_Store
 Thumbs.db
-
-# pyenv
-.python-version
 
 # Temporary analysis files (nie potrzebne w repo)
 BACKLOG_ANALYSIS.md

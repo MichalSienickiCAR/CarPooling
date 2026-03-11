@@ -1450,8 +1450,13 @@ class GoogleAuthURLView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        """Zwraca URL do autoryzacji Google"""
+        """Zwraca URL do autoryzacji Google (tylko gdy ENABLE_GOOGLE_OAUTH=true)."""
         from django.conf import settings
+        if not getattr(settings, 'ENABLE_GOOGLE_OAUTH', False):
+            return Response(
+                {'error': 'Google OAuth jest wyłączony w tym środowisku.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
         auth_url = (
             f"https://accounts.google.com/o/oauth2/v2/auth?"
             f"client_id={settings.GOOGLE_OAUTH_CLIENT_ID}&"
@@ -1467,7 +1472,13 @@ class GoogleAuthCallbackView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        """Obsługuje callback z Google OAuth"""
+        """Obsługuje callback z Google OAuth (tylko gdy ENABLE_GOOGLE_OAUTH=true)."""
+        from django.conf import settings
+        if not getattr(settings, 'ENABLE_GOOGLE_OAUTH', False):
+            return Response(
+                {'error': 'Google OAuth jest wyłączony w tym środowisku.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
         code = request.data.get('code')
 
         if not code:

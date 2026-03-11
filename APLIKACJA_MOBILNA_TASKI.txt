@@ -1,0 +1,289 @@
+================================================================================
+  APLIKACJA MOBILNA – WSZYSTKIE TASKI (PT2025NFCP-57)
+  Jeden plik, wszystko w jednym miejscu – do wklejenia do Jiry / do pracy
+================================================================================
+
+CO Z TYM PLIKIEM ZROBIĆ
+-----------------------
+• To NIE zastępuje BACKLOG_STARY_OGARNIECIE.md – tam dalej jest pełny backlog.
+• Ten plik to WYCIĄG tylko tasków mobilnych: żeby było czytelnie i w jednym miejscu.
+• W Jirze: PT2025NFCP-57 = epic. Pod spodem utworzyć child issues:
+  - 57.0   = PWA
+  - 57.0a  = Android (do pobrania)
+  - 57.0b  = iOS (do pobrania)
+  - 57.1   = Adres + instalacja (działanie)
+  - 57.2   = Nawigacja i UX mobile
+  - 57.3   = Powiadomienia push
+  - 57.4   = Logowanie i sesja na mobile
+  - 57.5   = E2E (weryfikacja flow)
+
+CO GDZIE ZMIENIAĆ (jeśli coś edytujesz)
+---------------------------------------
+• PWA, Android, iOS – każdy to OSOBNY task (57.0, 57.0a, 57.0b). Nie łącz w jeden.
+• Pełny opis epica i wszystkich tasków jest poniżej. Kopiuj sekcję do odpowiedniego ticketa w Jirze.
+
+
+================================================================================
+EPIC: PT2025NFCP-57 – Aplikacja mobilna (obowiązkowa)
+================================================================================
+
+USER STORY (epic):
+  Jako użytkownik, chcę korzystać z aplikacji na telefonie (iOS/Android lub PWA),
+  aby wyszukiwać przejazdy, rezerwować miejsca i dostawać powiadomienia w podróży,
+  bez konieczności używania komputera.
+
+CEL:
+  Aplikacja ma działać POD ADRESEM (przeglądarka) oraz być DO POBRANIA w trzech
+  formach:
+  • PWA        – instalacja z przeglądarki („Zainstaluj aplikację”)
+  • Android    – APK/AAB lub Google Play
+  • iOS        – IPA lub App Store
+
+  Każda forma = osobny task (57.0, 57.0a, 57.0b).
+
+
+================================================================================
+TASK 57.0 – PWA (aplikacja instalowalna z przeglądarki)
+================================================================================
+
+USER STORY:
+  Jako użytkownik, chcę móc zainstalować aplikację na telefonie przez przeglądarkę
+  („Zainstaluj aplikację” / „Dodaj do ekranu głównego”), aby mieć ikonę na ekranie
+  i korzystać jak z normalnej appki, bez pobierania z sklepu.
+
+SUBTASKI:
+  1. Konfiguracja manifest.json – nazwa aplikacji, krótka nazwa, ikony (192x192,
+     512x512), theme_color, background_color, start_url, display: standalone (lub minimal-ui).
+  2. Service worker – rejestracja (np. workbox / CRA PWA), cache strategia dla
+     assetów i API (np. network-first dla API). Aplikacja musi działać pod HTTPS.
+  3. Działanie pod adresem – upewnić się, że ta sama aplikacja działa gdy użytkownik
+     wchodzi tylko pod adresem (bez instalacji). Czyli NA ADRES TEŻ.
+  4. Test na Androidzie: Chrome – „Zainstaluj aplikację” / „Dodaj do ekranu głównego”;
+     po instalacji uruchomienie z ikony, logowanie, podstawowy flow.
+  5. Test na iOS: Safari – „Dodaj do ekranu początkowego”; uruchomienie z ikony,
+     sprawdzenie działania (Safari ma inne ograniczenia PWA).
+  6. Dokumentacja: instrukcja „Jak zainstalować aplikację (PWA)” w README lub pomocy –
+     krok po kroku dla użytkownika (Android + iOS).
+
+KRYTERIA UKOŃCZENIA:
+  Przeglądarka na telefonie oferuje instalację PWA; po instalacji aplikacja otwiera
+  się z ikony i działa (logowanie, kluczowe ekrany). Działanie pod samym adresem
+  (bez instalacji) potwierdzone.
+
+
+================================================================================
+TASK 57.0a – Aplikacja do pobrania – ANDROID
+================================================================================
+
+USER STORY:
+  Jako użytkownik z Androidem, chcę móc pobrać aplikację (APK/AAB lub z Google Play),
+  aby zainstalować ją jak zwykłą aplikację i korzystać z pełnej funkcjonalności.
+
+SUBTASKI:
+  1. Wybór technologii: opakowanie obecnego frontendu (np. Capacitor lub React Native).
+     Zalecane Capacitor – jedna codebase React, build do Androida.
+  2. Konfiguracja projektu Android: capacitor init / dodanie platformy android,
+     konfiguracja capacitor.config (url production lub bundle lokalny), ikony i splash screen.
+  3. Build: generowanie AAB/APK (release), podpis (keystore). Instrukcja w README:
+     jak zbudować wersję do pobrania / do wysłania do Google Play.
+  4. Test na urządzeniu/emulatorze Android: instalacja z pliku APK (lub wewnętrzny
+     test track), logowanie, wyszukiwanie, rezerwacja, powiadomienia (jeśli push gotowe).
+  5. Opcjonalnie – publikacja w Google Play: konto deweloperskie, utworzenie aplikacji,
+     upload AAB, wypełnienie metadanych (opis, screenshots). Można zostawić na później.
+  6. Dokumentacja: „Jak pobrać aplikację na Androida” (link do APK / do sklepu) – dla użytkowników.
+
+KRYTERIA UKOŃCZENIA:
+  Można zbudować instalowalny plik (APK lub AAB) dla Androida; aplikacja po instalacji
+  działa (logowanie, kluczowe flow). Publikacja w sklepie opcjonalna.
+
+
+================================================================================
+TASK 57.0b – Aplikacja do pobrania – iOS
+================================================================================
+
+USER STORY:
+  Jako użytkownik z iPhone’em/iPadem, chcę móc pobrać aplikację (z App Store lub
+  link do instalacji), aby zainstalować ją jak zwykłą aplikację i korzystać z pełnej funkcjonalności.
+
+SUBTASKI:
+  1. Konfiguracja projektu iOS: dodanie platformy ios w Capacitor (lub odpowiednik
+     w wybranej technologii), konfiguracja dla iOS (bundle id, ikony, splash).
+  2. Build w Xcode (Mac wymagany): otwarcie projektu ios/App/App.xcworkspace, wybór
+     urządzenia/symulatora, archiwum i eksport IPA. Instrukcja w README: jak zbudować
+     wersję iOS do testów / do App Store.
+  3. Certyfikaty i provisioning: Apple Developer account, App ID, profil provisioning
+     (development / distribution). TestFlight umożliwia dystrybucję bez od razu publikacji w sklepie.
+  4. Test na urządzeniu/symulatorze iOS: instalacja (TestFlight lub development build),
+     logowanie, wyszukiwanie, rezerwacja, powiadomienia (jeśli push gotowe).
+  5. Opcjonalnie – publikacja w App Store: utworzenie aplikacji w App Store Connect,
+     upload builda, wypełnienie metadanych, przesłanie do recenzji. Można zostawić na później.
+  6. Dokumentacja: „Jak pobrać aplikację na iOS” (TestFlight / App Store) – dla użytkowników.
+
+KRYTERIA UKOŃCZENIA:
+  Można zbudować instalowalną wersję na iOS (symulator lub urządzenie); aplikacja
+  po instalacji działa (logowanie, kluczowe flow). Publikacja w App Store opcjonalna.
+
+
+================================================================================
+TASK 57.1 – Aplikacja dostępna na telefonie (adres + instalacja)
+================================================================================
+
+USER STORY:
+  Jako użytkownik, chcę otworzyć aplikację na telefonie (przez przeglądarkę pod adresem
+  albo po pobraniu/zainstalowaniu) i zalogować się, aby mieć dostęp do funkcji bez komputera.
+
+UWAGA:
+  Tworzenie wersji mobilnych jest w 57.0 (PWA), 57.0a (Android), 57.0b (iOS).
+  Tu: dopięcie działania pod adresem i po instalacji dla każdej z tych wersji.5
+
+SUBTASKI:
+  1. Frontend: meta viewport, responsywność layoutu (nawigacja, listy, formularze) –
+     breakpointy mobile first, żeby pod adresem i w PWA wyglądało tak samo.
+  2. Backend: CORS i nagłówki bezpieczeństwa pod wywołania z mobile (origin, cookies jeśli używane).
+  3. Dokumentacja: krótka instrukcja „Jak wejść na aplikację (adres)” i „Jak pobrać/zainstalować
+     aplikację” (PWA lub sklep) w README lub pomocy.
+  4. Testy: wejście pod adresem na telefonie; instalacja PWA (57.0) lub appki Android (57.0a) /
+     iOS (57.0b); logowanie i podstawowy flow w każdym przypadku.
+
+KRYTERIA UKOŃCZENIA:
+  Użytkownik na telefonie może (1) wejść pod adresem i (2) używać po instalacji;
+  w obu przypadkach logowanie (Google) i dashboard działają.
+
+
+================================================================================
+TASK 57.2 – Nawigacja i UX na małym ekranie
+================================================================================
+
+USER STORY:
+  Jako użytkownik na telefonie, chcę wygodnie klikać w przyciski i formularze oraz
+  przechodzić między ekranami (wyszukiwanie, rezerwacje, profil), aby nie frustrować
+  się małym ekranem.
+
+SUBTASKI:
+  1. Frontend: menu nawigacji na mobile (hamburger lub dolny pasek) – spójne na
+     wszystkich widokach (Landing, Dashboard, Wyszukiwanie, Profil, Portfel itd.).
+  2. Frontend: listy (wyniki wyszukiwania, Moje rezerwacje, Moje przejazdy) – karty/
+     wiersze dostosowane do dotyku (wielkość, odstępy).
+  3. Frontend: formularze (wyszukiwanie, dodawanie przejazdu, edycja profilu) –
+     pola pełnej szerokości, duże przyciski, unikanie małych checkboxów.
+  4. Frontend: modale i dialogi (rezerwacja, powiadomienia, waitlist) – na pełny
+     ekran lub większy overlay na mobile.
+  5. Testy: przejście flow wyszukiwanie → szczegóły → rezerwacja oraz kierowca:
+     dodaj przejazd → moje przejazdy na emulatorze/telefonie.
+
+KRYTERIA UKOŃCZENIA:
+  Wszystkie główne ekrany są czytelne i wygodne na ekranie ~375px; brak poziomego
+  scrolla i „zbyt małych” elementów.
+
+
+================================================================================
+TASK 57.3 – Powiadomienia push na telefonie
+================================================================================
+
+USER STORY:
+  Jako użytkownik, chcę dostawać powiadomienia push na telefonie (np. nowa rezerwacja,
+  akceptacja, wiadomość od kierowcy), aby być na bieżąco bez wchodzenia w aplikację.
+
+SUBTASKI:
+  1. Backend: integracja z usługą push (np. Firebase Cloud Messaging lub OneSignal) –
+     zapis tokenu urządzenia użytkownika (endpoint lub pole w profilu).
+  2. Backend: przy wysyłce powiadomienia in-app (np. po akceptacji rezerwacji) –
+     wywołanie wysyłki push do powiązanego urządzenia (jeśli token jest).
+  3. Frontend: prośba o zgodę na powiadomienia (po logowaniu lub w ustawieniach),
+     rejestracja tokenu i wysłanie do backendu.
+  4. Frontend: obsługa kliknięcia w powiadomienie (otwarcie odpowiedniego ekranu,
+     np. szczegóły przejazdu / lista powiadomień).
+  5. Testy: włączenie powiadomień na telefonie/emulatorze, wywołanie akcji (np.
+     akceptacja rezerwacji) i sprawdzenie, że push przychodzi.
+
+KRYTERIA UKOŃCZENIA:
+  Użytkownik może włączyć powiadomienia i otrzymuje push przy zdarzeniach
+  (rezerwacja, akceptacja itd.).
+
+
+================================================================================
+TASK 57.4 – Logowanie i sesja na urządzeniu mobilnym
+================================================================================
+
+USER STORY:
+  Jako użytkownik, chcę zalogować się przez Google na telefonie i pozostać zalogowanym
+  (do wylogowania lub wygaśnięcia sesji), aby nie wpisywać hasła przy każdym wejściu.
+
+SUBTASKI:
+  1. Backend: sprawdzenie, że JWT + refresh działają z requestami z mobile (nagłówki, CORS).
+  2. Frontend: flow logowania Google na mobile (redirect lub popup – wybór i obsługa);
+     zapis tokenu (localStorage/sessionStorage lub secure storage jeśli PWA).
+  3. Frontend: automatyczne odświeżanie tokenu przy 401 (interceptor) – żeby sesja
+     nie psuła się na mobile.
+  4. Testy: logowanie na telefonie/emulatorze, przejście do dashboardu, zamknięcie
+     przeglądarki i ponowne wejście – sesja zachowana lub czytelny komunikat wylogowania.
+
+KRYTERIA UKOŃCZENIA:
+  Logowanie Google na telefonie działa; użytkownik nie jest wylogowywany przy
+  normalnym użytkowaniu (dopóki token jest ważny / refresh działa).
+
+
+================================================================================
+TASK 57.5 – Kluczowe flow na mobile (weryfikacja end-to-end)
+================================================================================
+
+USER STORY:
+  Jako kierowca na telefonie, chcę dodać przejazd, zobaczyć rezerwacje i zaakceptować/
+  odrzucić. Jako pasażer – wyszukać przejazd, zarezerwować i zobaczyć status. Aby
+  cała aplikacja była w pełni użyteczna z telefonu.
+
+SUBTASKI:
+  1. Przegląd wszystkich ekranów kierowcy na mobile (Dashboard, Dodaj przejazd,
+     Moje przejazdy, Rezerwacje, Portfel, Historia, Znajomi, Zaufani) – lista
+     brakujących poprawek (layout, przyciski, tekst).
+  2. Przegląd wszystkich ekranów pasażera na mobile (Dashboard, Wyszukiwanie,
+     Szczegóły przejazdu, Rezerwacja, Moje rezerwacje, Powiadomienia, Profil,
+     Portfel) – lista brakujących poprawek.
+  3. Scenariusze E2E na telefonie/emulatorze:
+     (1) Pasażer: wyszukaj → zarezerwuj → zobacz status.
+     (2) Kierowca: dodaj przejazd → zaakceptuj rezerwację → wyślij powiadomienie.
+     (3) Wspólne: profil, portfel, wylogowanie.
+     Dokumentacja: „Co przetestować na mobile”.
+  4. Naprawa ustaleń z przeglądu (podział jak w backlogu).
+
+KRYTERIA UKOŃCZENIA:
+  Kierowca i pasażer mogą wykonać pełny, kluczowy flow wyłącznie z telefonu;
+  lista usterek z przeglądu jest zamknięta.
+
+
+================================================================================
+PODZIAŁ NA OSOBY (sugestia dla ~3 osób)
+================================================================================
+
+  Osoba 1:  57.0 (PWA), 57.0a (Android), 57.0b (iOS), 57.1 (adres + instalacja),
+            57.2 (nawigacja, formularze)
+            → Tworzenie aplikacji mobilnej (PWA + build), UX mobile
+
+  Osoba 2:  57.3 (push), 57.4 (logowanie/sesja)
+            → Backend push + Frontend auth/push
+
+  Osoba 3:  57.5 (E2E, przegląd, testy), wsparcie przy 57.0/57.1 (testy instalacji)
+            → Testy, weryfikacja, dokumentacja
+
+
+================================================================================
+JIRA – CO WPISAĆ
+================================================================================
+
+  • PT2025NFCP-57 = epic „Aplikacja mobilna (obowiązkowa)”.
+  • Child issues:
+      57.0   – PWA (aplikacja instalowalna z przeglądarki)
+      57.0a  – Aplikacja do pobrania – Android
+      57.0b  – Aplikacja do pobrania – iOS
+      57.1   – Aplikacja dostępna na telefonie (adres + instalacja)
+      57.2   – Nawigacja i UX na małym ekranie
+      57.3   – Powiadomienia push na telefonie
+      57.4   – Logowanie i sesja na urządzeniu mobilnym
+      57.5   – Kluczowe flow na mobile (E2E)
+
+  • PT2025NFCP-95 i PT2025NFCP-96: zlinkować do 57.1 (dostęp) i 57.3 (push)
+    albo zamknąć jako zrealizowane w ramach 57.
+
+================================================================================
+KONIEC PLIKU
+================================================================================

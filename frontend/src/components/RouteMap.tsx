@@ -26,8 +26,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   endLocation,
   intermediateStops = [],
 }) => {
-  // Fallback: w razie problemów z .env użyjemy klucza wpisanego na stałe
-  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyBLELJQACMnJQa2ZJ_UgZOJEEq-DAkKLck';
+  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',

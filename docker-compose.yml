@@ -1,0 +1,23 @@
+# Baza PostgreSQL dla rozwoju lokalnego.
+# Uruchom: docker compose up -d db
+# Backend łączy się z localhost:5432 (DB_HOST=localhost w .env).
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: carpooling
+      POSTGRES_USER: carpool
+      POSTGRES_PASSWORD: carpool
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carpool -d carpooling"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -164,7 +164,7 @@ export const Login: React.FC = () => {
               Zaloguj się
             </Button>
 
-            <GoogleLoginButton />
+            {process.env.REACT_APP_GOOGLE_OAUTH_ENABLED === 'true' && <GoogleLoginButton />}
             <Box sx={{ 
               textAlign: 'center',
               mt: 2

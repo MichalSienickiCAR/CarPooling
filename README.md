@@ -51,179 +51,121 @@ git pull origin feature/nazwa-brancha
 
 ## Wymagania
 
-### Backend
-- Python 3.8+
-- PostgreSQL
-- Virtual environment (venv)
-
-### Frontend
-- Node.js 16+
-- npm
-
-## Instalacja i uruchomienie
-
-### Backend
-
-1. Przejdź do katalogu backend:
-```bash
-cd backend
-```
-
-2. **Utwórz virtual environment** (jeśli jeszcze nie istnieje):
-```bash
-# Windows
-python -m venv ..\venv
-
-# Linux/Mac
-python3 -m venv ../venv
-```
-
-3. **Aktywuj virtual environment:**
-```bash
-# Windows
-..\venv\Scripts\activate
-
-# Linux/Mac
-source ../venv/bin/activate
-```
-
-4. **Zainstaluj zależności:**
-```bash
-pip install -r requirements.txt
-```
-
-4. **Skonfiguruj PostgreSQL:**
-   
-   a. Upewnij się, że PostgreSQL jest zainstalowany i uruchomiony na Twoim systemie.
-   
-   b. Utwórz bazę danych w PostgreSQL:
-   ```sql
-   -- Zaloguj się do PostgreSQL jako superuser
-   psql -U postgres
-   
-   -- Utwórz bazę danych
-   CREATE DATABASE carpooling;
-   
-   -- (Opcjonalnie) Utwórz użytkownika
-   CREATE USER carpool WITH PASSWORD 'twoje_haslo';
-   GRANT ALL PRIVILEGES ON DATABASE carpooling TO carpool;
-   ```
-   
-   c. Utwórz plik `.env` w katalogu `backend/` z następującą konfiguracją:
-   ```env
-   # Django Settings
-   SECRET_KEY=twoj-secret-key-tutaj
-   DEBUG=True
-   
-   # Database Configuration (PostgreSQL)
-   DB_NAME=carpooling
-   DB_USER=postgres
-   DB_PASSWORD=twoje_haslo_postgres
-   DB_HOST=localhost
-   DB_PORT=5432
-   
-   # Ustaw USE_SQLITE=True tylko jeśli chcesz użyć SQLite (niezalecane)
-   USE_SQLITE=False
-   ```
-   
-   **Uwaga:** 
-   - Każdy członek zespołu powinien mieć własny plik `.env` z własnymi danymi dostępowymi do lokalnej bazy PostgreSQL.
-   - **Ważne:** Jeśli hasło PostgreSQL zawiera znaki specjalne, może wystąpić błąd `UnicodeDecodeError`.
-   
-   **Rozwiązanie problemu z kodowaniem hasła:**
-   
-   Jeśli widzisz błąd `UnicodeDecodeError: 'utf-8' codec can't decode byte...`:
-   
-   1. Zmień hasło użytkownika PostgreSQL na proste (tylko litery i cyfry):
-   ```sql
-   -- Zaloguj się do PostgreSQL jako superuser
-   psql -U postgres
-   
-   -- Zmień hasło użytkownika
-   ALTER USER carpool WITH PASSWORD 'prostehaslo123';
-   -- lub dla użytkownika postgres:
-   ALTER USER postgres WITH PASSWORD 'prostehaslo123';
-   ```
-   
-   2. Zaktualizuj `DB_PASSWORD` w pliku `.env`:
-   ```env
-   DB_PASSWORD=prostehaslo123
-   ```
-   
-   3. Upewnij się, że plik `.env` jest zapisany w kodowaniu UTF-8 (bez BOM).
-   
-   4. Sprawdź połączenie uruchamiając:
-   ```bash
-   python check_db_connection.py
-   ```
-
-5. Upewnij się, że PostgreSQL jest uruchomiony i baza danych istnieje.
-
-6. **Sprawdź połączenie z bazą danych** (opcjonalnie, ale zalecane):
-   ```bash
-   python check_db_connection.py
-   ```
-   Ten skrypt sprawdzi czy:
-   - PostgreSQL jest uruchomiony
-   - Baza danych istnieje
-   - Połączenie działa poprawnie
-   
-   Jeśli wystąpi błąd, zobacz sekcję "Rozwiązanie problemu z kodowaniem hasła" powyżej.
-
-7. Wykonaj migracje:
-```bash
-python manage.py migrate
-```
-
-8. Utwórz superusera (opcjonalnie):
-```bash
-python manage.py createsuperuser
-```
-
-9. Uruchom serwer deweloperski:
-```bash
-python manage.py runserver
-```
-
-Backend będzie dostępny pod adresem: `http://localhost:8000`
-
-### Frontend
-
-1. Przejdź do katalogu frontend:
-```bash
-cd frontend
-```
-
-2. Zainstaluj zależności:
-```bash
-npm install
-```
-
-3. Uruchom aplikację:
-```bash
-npm start
-```
-
-Frontend będzie dostępny pod adresem: `http://localhost:3000`
+- **Backend:** Python 3.8+, virtual environment (venv)
+- **Baza:** **PostgreSQL w Dockerze** – wszyscy w zespole używamy Postgresa, żeby nie mieszać w kodzie i uniknąć problemów (u jednego SQLite, u drugiego Postgres). Potrzebny jest **Docker**.
+- **Frontend:** Node.js 16+, npm
 
 ## Szybki start dla nowych członków zespołu
 
-Jeśli dopiero pobierasz projekt, wykonaj następujące kroki w kolejności:
+**Standard zespołu: każdy pracuje na Postgresie z Dockera.** Nie zmieniaj `DB_ENGINE` na sqlite – wartości w `backend/.env` (skopiowanym z `.env.example`) są ustawione pod Docker i mają tak zostać.
 
-1. **Sklonuj repozytorium** (patrz sekcja "Pobieranie projektu" powyżej)
-2. **Zainstaluj PostgreSQL** i utwórz lokalną bazę danych
-3. **Utwórz plik `.env`** w katalogu `backend/` z konfiguracją bazy danych
-4. **Utwórz virtual environment** i zainstaluj zależności Pythona
-5. **Wykonaj migracje** Django (`python manage.py migrate`)
-6. **Zainstaluj zależności frontendowe** (`npm install` w katalogu `frontend/`)
-7. **Uruchom backend** (`python manage.py runserver` w katalogu `backend/`)
-8. **Uruchom frontend** (`npm start` w katalogu `frontend/`)
+### 1. Sklonuj i przygotuj konfigurację
 
-**Ważne:**
-- Każdy członek zespołu musi mieć **własną lokalną bazę PostgreSQL** i **własny plik `.env`**
-- Plik `.env` **nie jest** w repozytorium (jest w `.gitignore`)
-- Virtual environment (`venv/`) **nie jest** w repozytorium - każdy tworzy własny
-- Pracuj tylko na **własnym branchu**, nie pushuj na `main`
+```bash
+git clone https://devtools.wi.pb.edu.pl/bitbucket/projects/CAR/repos/carpooling.git
+cd carpooling
+```
+
+**Backend – plik .env:**
+
+- Windows: `copy backend\.env.example backend\.env`
+- Linux/Mac: `cp backend/.env.example backend/.env`
+
+W pliku `backend/.env` **zostaw domyślne wartości** – są ustawione pod Postgresa w Dockerze (DB_ENGINE=postgres, DB_HOST=localhost itd.). Nic nie zmieniaj przy bazie.
+
+**Frontend – plik .env.local:**
+
+- Windows: `copy frontend\.env.example frontend\.env.local`
+- Linux/Mac: `cp frontend/.env.example frontend/.env.local`
+
+Domyślnie logowanie przez Google jest **wyłączone** (logujesz się zwykłym kontem / rejestracja). Aby włączyć Google – patrz sekcja „Jak włączyć Google OAuth lokalnie” poniżej.
+
+### 2. Uruchom bazę (Postgres w Dockerze)
+
+W katalogu głównym projektu:
+
+```bash
+docker compose up -d db
+```
+
+Poczekaj chwilę, aż kontener się podniesie. Backend łączy się z `localhost:5432` (wartości z `backend/.env`). **Docker jest wymagany** – wszyscy używamy Postgresa.
+
+### 3. Backend
+
+```bash
+cd backend
+python -m venv ..\venv
+..\venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+Backend: `http://localhost:8000`
+
+(W Linux/Mac: `source ../venv/bin/activate` zamiast `..\venv\Scripts\activate`.)
+
+### 4. Frontend (w drugim terminalu)
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Frontend: `http://localhost:3000`
+
+### 5. Pierwsze konto
+
+Wejdź na `http://localhost:3000`, kliknij **Nie masz konta? Zarejestruj się**, załóż konto (login/hasło). Przycisk „Zaloguj przez Google” nie jest widoczny, dopóki nie włączysz Google OAuth (patrz niżej).
+
+---
+
+## Szybki start z Dockerem (podsumowanie)
+
+| Krok | Komenda |
+|------|--------|
+| Baza | `docker compose up -d db` (w katalogu głównym) |
+| Backend | `cd backend` → venv + `pip install -r requirements.txt` → `python manage.py migrate` → `python manage.py runserver` |
+| Frontend | `cd frontend` → `npm install` → `npm start` |
+
+Pliki `.env` i `.env.local` tworzysz z `.env.example` (nie trafiają do repo).
+
+---
+
+## Awaryjnie: SQLite (bez Dockera)
+
+Tylko jeśli **naprawdę** nie możesz użyć Dockera. W `backend/.env` ustaw `DB_ENGINE=sqlite` – wtedy baza będzie w pliku `backend/db.sqlite3`. W zespole standard to Postgres; SQLite na własną odpowiedzialność.
+
+---
+
+## Jak włączyć Google OAuth lokalnie (opcjonalnie)
+
+Domyślnie w DEV logowanie przez Google jest wyłączone, żeby każdy mógł od razu pracować bez konfiguracji.
+
+1. **Google Cloud Console:** Utwórz projekt (lub użyj wspólnego zespołowego), włącz „Google+ API” / „People API”, utwórz dane uwierzytelniające OAuth 2.0 (typ: aplikacja internetowa). W „Authorized redirect URIs” dodaj: `http://localhost:3000/auth/google/callback`.
+2. **Backend** – w `backend/.env` ustaw:
+   - `ENABLE_GOOGLE_OAUTH=true`
+   - `GOOGLE_OAUTH_CLIENT_ID=...` (Client ID z konsoli)
+   - `GOOGLE_OAUTH_CLIENT_SECRET=...` (Client secret)
+   - `GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/auth/google/callback`
+3. **Frontend** – w `frontend/.env.local` ustaw:
+   - `REACT_APP_GOOGLE_OAUTH_ENABLED=true`
+4. Zrestartuj backend i frontend. Na stronie logowania pojawi się przycisk „Zaloguj przez Google”.
+
+Sekrety trzymaj tylko w `.env` / `.env.local` – nie commituj ich do repo.
+
+---
+
+## Gdy coś nie działa (rozwiązywanie problemów)
+
+| Objaw | Co sprawdzić |
+|--------|----------------|
+| Błąd połączenia z bazą (backend) | Upewnij się, że Docker działa i wykonałeś `docker compose up -d db` w katalogu projektu. W `.env` ma być `DB_ENGINE=postgres`. |
+| `ModuleNotFoundError` / brak pakietów | Czy venv jest aktywowany i czy wykonałeś `pip install -r requirements.txt`? |
+| Frontend nie łączy się z API | Czy backend działa na `http://localhost:8000`? W `.env.local`: `REACT_APP_API_URL=http://localhost:8000/api`. |
+| Brak przycisku Google | To normalne – w DEV jest wyłączony. Aby włączyć: sekcja „Jak włączyć Google OAuth lokalnie” powyżej. |
+| Błąd kodowania / hasło PostgreSQL | Użyj hasła bez znaków specjalnych w `.env` (np. `carpool`) lub przejdź na SQLite. |
 
 ## API Endpoints
 
@@ -291,6 +233,11 @@ git push origin feature/nazwa-twojego-brancha
 - Nie pushuj niczego na branch `main` - pracuj tylko na swoim branchu!
 - Używaj opisowych commitów z numerem taska (np. `PT2025NFCP-XX`)
 - Przed rozpoczęciem pracy zawsze pobierz najnowsze zmiany z głównego brancha
+
+## Pliki pomocnicze
+
+- `dev_setup.md` – komendy do uruchomienia backendu i frontendu (ściąga)
+- `start_backend.bat` / `start_frontend.bat` – skrypty startowe dla Windows (wymagają wcześniejszego `copy .env.example .env` i `docker compose up -d db`)
 
 ## Dokumentacja
 

@@ -25,10 +25,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)m57m^t+^1sg_$%8n+prmaus!7vz67+o996*y+g@6676ls)eg!'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+APP_ENV = os.getenv('APP_ENV', 'dev').lower()
+DEBUG = os.getenv('DEBUG', 'true').lower() == 'true'
 
 ALLOWED_HOSTS = ["*"]
 
@@ -105,7 +106,7 @@ Supported env variables:
 - DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT (for Postgres)
 """
 
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+DB_ENGINE = os.getenv("DB_ENGINE", "postgres").lower()
 
 if DB_ENGINE == "postgres":
     DATABASES = {
@@ -113,7 +114,7 @@ if DB_ENGINE == "postgres":
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('DB_NAME', 'carpooling'),
             'USER': os.getenv('DB_USER', 'carpool'),
-            'PASSWORD': os.getenv('DB_PASSWORD', 'ZJ<170yuJ~{>rOx3c_Mq@b$g'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'carpool'),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
         }
@@ -176,7 +177,8 @@ CORS_ALLOW_CREDENTIALS = True
 # Get your free API key from: https://openweathermap.org/api
 OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_API_KEY', '')
 
-# Google OAuth Configuration
+# Google OAuth (optional in DEV; set ENABLE_GOOGLE_OAUTH=true and credentials to use)
+ENABLE_GOOGLE_OAUTH = os.getenv('ENABLE_GOOGLE_OAUTH', 'false').lower() == 'true'
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
 GOOGLE_OAUTH_REDIRECT_URI = os.environ.get('GOOGLE_OAUTH_REDIRECT_URI', 'http://localhost:3000/auth/google/callback')
