@@ -12,13 +12,13 @@ import {
     Chip,
     CircularProgress
 } from '@mui/material';
-import { ArrowBack, Logout, Place, DirectionsCar, Star, SmokingRooms, Pets, MusicNote, FavoriteBorder, Favorite, Report } from '@mui/icons-material';
+import { ArrowBack, Logout, Place, DirectionsCar, Star, SmokingRooms, Pets, MusicNote, FavoriteBorder, Favorite, Report, Luggage } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { tripService, authService, Trip, trustedUserService } from '../services/api';
+import { formatDateRelative, formatDuration } from '../utils/formatUtils';
 import ReportUser from './ReportUser';
 import WaitlistDialog from './WaitlistDialog';
 import WeatherForecast from './WeatherForecast';
-import RouteMap from './RouteMap';
 
 export const TripDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -133,7 +133,22 @@ export const TripDetails: React.FC = () => {
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={4}>
                     <Box sx={{ width: { xs: '100%', md: '65%' } }}>
                         <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#f5f5f5', mb: 4 }}>
-                            <Typography variant="h4" fontWeight="bold" gutterBottom>{trip.date}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+                              <Typography variant="h4" fontWeight="bold">{formatDateRelative(trip.date)}</Typography>
+                              <Typography variant="body1" color="textSecondary">{trip.date}</Typography>
+                              {trip.available_seats === 1 && (
+                                <Chip label="Ostatnie miejsce!" size="small" sx={{ bgcolor: '#fff3e0', color: '#e65100', fontWeight: 600 }} />
+                              )}
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                              {trip.estimated_duration_minutes != null && (
+                                <Typography variant="body2" color="textSecondary">{formatDuration(trip.estimated_duration_minutes)}</Typography>
+                              )}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Luggage sx={{ fontSize: '18px', color: trip.luggage_ok !== false ? '#00aff5' : '#9e9e9e' }} />
+                                <Typography variant="body2" color="textSecondary">{trip.luggage_ok !== false ? 'Miejsce na bagaż' : 'Brak miejsca na bagaż'}</Typography>
+                              </Box>
+                            </Box>
                             <Box sx={{ mt: 4 }}>
                                 <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -173,12 +188,10 @@ export const TripDetails: React.FC = () => {
                                 <Typography variant="h4" fontWeight="bold" color="primary">{trip.price_per_seat} zł</Typography>
                             </Box>
                         </Paper>
-                        {/* Mapa trasy przejazdu (PT2025NFCP-61 / dodatkowy task) */}
-                        <RouteMap
-                            startLocation={trip.start_location}
-                            endLocation={trip.end_location}
-                            intermediateStops={trip.intermediate_stops || []}
-                        />
+                        {/* Mapa trasy – wyłączona, do zrobienia od nowa */}
+                        <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#f5f5f5', border: '1px dashed #e0e0e0', mb: 4 }}>
+                            <Typography variant="body2" color="text.secondary" textAlign="center">Mapa trasy – wkrótce</Typography>
+                        </Paper>
                         {trip && trip.id && <WeatherForecast tripId={trip.id} />}
                         <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#fff', border: '1px solid #e0e0e0' }}>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Udogodnienia i zasady</Typography>

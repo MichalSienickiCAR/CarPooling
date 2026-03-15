@@ -1,7 +1,7 @@
 import React from 'react';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import { Box, Button, Container, TextField, Typography, Paper, Stack, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Box, Button, Container, TextField, Typography, Paper, Stack, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, Select, FormControl, InputLabel, FormControlLabel, Checkbox } from '@mui/material';
 import { Add, Logout, ArrowBack, Save } from '@mui/icons-material';
 import { tripService, TripFormData, authService, tripTemplateService, TripTemplate } from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -45,7 +45,7 @@ export const AddTrip: React.FC = () => {
   const [templateName, setTemplateName] = useState('');
 
   const formik = useFormik<TripFormData>({
-    initialValues: { start_location: '', end_location: '', intermediate_stops: [], date: '', time: '', available_seats: 1, price_per_seat: 0 },
+    initialValues: { start_location: '', end_location: '', intermediate_stops: [], date: '', time: '', available_seats: 1, price_per_seat: 0, estimated_duration_minutes: undefined, luggage_ok: true },
     validationSchema: validationSchema,
     onSubmit: async (values) => {
       try {
@@ -166,6 +166,10 @@ export const AddTrip: React.FC = () => {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <CustomInput label="Liczba miejsc" type="number" name="available_seats" value={formik.values.available_seats} onChange={formik.handleChange} error={formik.touched.available_seats && Boolean(formik.errors.available_seats)} inputProps={{ min: 1 }} />
                 <CustomInput label="Cena (PLN)" type="number" name="price_per_seat" value={formik.values.price_per_seat} onChange={formik.handleChange} error={formik.touched.price_per_seat && Boolean(formik.errors.price_per_seat)} inputProps={{ min: 0, step: 0.01 }} />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <CustomInput label="Szacowany czas (min)" type="number" name="estimated_duration_minutes" value={formik.values.estimated_duration_minutes ?? ''} onChange={formik.handleChange} placeholder="np. 90" inputProps={{ min: 0 }} />
+                <FormControlLabel control={<Checkbox checked={formik.values.luggage_ok ?? true} onChange={(e) => formik.setFieldValue('luggage_ok', e.target.checked)} name="luggage_ok" />} label="Miejsce na bagaż" />
               </Stack>
               <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                 <Button 

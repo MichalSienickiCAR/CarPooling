@@ -16,8 +16,13 @@ import {
     CircularProgress,
     Switch,
     FormControlLabel,
+    LinearProgress,
+    List,
+    ListItem,
+    ListItemIcon,
+    ListItemText,
 } from '@mui/material';
-import { PhotoCamera, ArrowBack, Save as SaveIcon, Logout } from '@mui/icons-material';
+import { PhotoCamera, ArrowBack, Save as SaveIcon, Logout, AddCircleOutline } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useFormik } from 'formik';
@@ -144,6 +149,44 @@ export const UserProfile: React.FC = () => {
             </Box>
 
             <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: '40px', bgcolor: '#f5f5f5' }}>
+                {(() => {
+                    const hasAvatar = Boolean(avatarPreview);
+                    const hasFirstName = Boolean(formik.values.first_name?.trim());
+                    const hasLastName = Boolean(formik.values.last_name?.trim());
+                    const hasEmail = Boolean(formik.values.email?.trim());
+                    const hasPhone = Boolean(formik.values.phone_number?.trim());
+                    const filled = [hasAvatar, hasFirstName, hasLastName, hasEmail, hasPhone].filter(Boolean).length;
+                    const percent = Math.round((filled / 5) * 100);
+                    const missing: { label: string }[] = [];
+                    if (!hasAvatar) missing.push({ label: 'Dodaj zdjęcie profilowe' });
+                    if (!hasFirstName) missing.push({ label: 'Podaj imię' });
+                    if (!hasLastName) missing.push({ label: 'Podaj nazwisko' });
+                    if (!hasEmail) missing.push({ label: 'Podaj adres e-mail' });
+                    if (!hasPhone) missing.push({ label: 'Podaj numer telefonu' });
+                    return (
+                        <Box sx={{ mb: 4 }}>
+                            <Typography variant="subtitle1" fontWeight="bold" color="textSecondary" gutterBottom>
+                                Profil uzupełniony w {percent}%
+                            </Typography>
+                            <LinearProgress variant="determinate" value={percent} sx={{ height: 8, borderRadius: 4, mb: 2 }} />
+                            {missing.length > 0 && (
+                                <>
+                                    <Typography variant="body2" color="textSecondary" sx={{ mt: 1, mb: 0.5 }}>Brakujące elementy:</Typography>
+                                    <List dense disablePadding>
+                                        {missing.map((item, i) => (
+                                            <ListItem key={i} disablePadding sx={{ py: 0 }}>
+                                                <ListItemIcon sx={{ minWidth: 32 }}>
+                                                    <AddCircleOutline fontSize="small" color="action" />
+                                                </ListItemIcon>
+                                                <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2' }} />
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                </>
+                            )}
+                        </Box>
+                    );
+                })()}
                 <Box component="form" onSubmit={formik.handleSubmit}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={6}>
                         {/* Sekcja Avatara */}

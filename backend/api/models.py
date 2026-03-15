@@ -67,6 +67,12 @@ class Trip(models.Model):
         validators=[MinValueValidator(0)],
         verbose_name='Cena za miejsce (udział w kosztach)'
     )
+    estimated_duration_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Szacowany czas przejazdu (minuty)'
+    )
+    luggage_ok = models.BooleanField(default=True, verbose_name='Miejsce na bagaż')
     completed = models.BooleanField(default=False, verbose_name='Zakończony')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Data zakończenia')
     created_at = models.DateTimeField(auto_now_add=True)
