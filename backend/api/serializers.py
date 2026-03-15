@@ -164,7 +164,8 @@ class TripSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'driver', 'driver_username', 'driver_profile', 'start_location', 'end_location',
             'intermediate_stops', 'date', 'time', 'available_seats',
-            'price_per_seat', 'completed', 'completed_at', 'created_at', 'updated_at', 'bookings',
+            'price_per_seat', 'estimated_duration_minutes', 'luggage_ok',
+            'completed', 'completed_at', 'created_at', 'updated_at', 'bookings',
             'driver_average_rating', 'driver_review_count'
         ]
         read_only_fields = ['id', 'driver', 'created_at', 'updated_at', 'bookings', 'driver_profile', 'completed', 'completed_at', 'driver_average_rating', 'driver_review_count']

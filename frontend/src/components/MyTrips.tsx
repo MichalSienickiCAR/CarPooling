@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { AppBar, Box, Button, Chip, CircularProgress, Container, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, List, ListItem, ListItemText, Paper, Stack, TextField, Typography } from '@mui/material';
+import { AppBar, Box, Button, Chip, CircularProgress, Container, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, Checkbox, IconButton, List, ListItem, ListItemText, Paper, Stack, TextField, Typography } from '@mui/material';
 import { Add, Edit, Delete, People, ArrowForward, Logout, ArrowBack, Check, Close, Notifications, CheckCircle } from '@mui/icons-material';
+import { formatDateRelative } from '../utils/formatUtils';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useFormik } from 'formik';
@@ -149,7 +150,9 @@ export const MyTrips: React.FC = () => {
       time: selectedTrip.time,
       available_seats: selectedTrip.available_seats,
       price_per_seat: Number(selectedTrip.price_per_seat),
-    } : { start_location: '', end_location: '', intermediate_stops: [], date: '', time: '', available_seats: 1, price_per_seat: 0 },
+      estimated_duration_minutes: selectedTrip.estimated_duration_minutes ?? undefined,
+      luggage_ok: selectedTrip.luggage_ok ?? true,
+    } : { start_location: '', end_location: '', intermediate_stops: [], date: '', time: '', available_seats: 1, price_per_seat: 0, estimated_duration_minutes: undefined, luggage_ok: true },
     validationSchema,
     onSubmit: async (values) => {
       if (!selectedTrip?.id) return;
@@ -229,12 +232,15 @@ export const MyTrips: React.FC = () => {
               <Paper key={trip.id} elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid #e0e0e0', bgcolor: '#fff', transition: 'all 0.3s', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1, flexWrap: 'wrap' }}>
                       <Typography variant="h5" fontWeight="bold">{trip.start_location}</Typography>
                       <ArrowForward color="action" />
                       <Typography variant="h5" fontWeight="bold">{trip.end_location}</Typography>
+                      {trip.available_seats === 1 && (
+                        <Chip label="Ostatnie miejsce!" size="small" sx={{ bgcolor: '#fff3e0', color: '#e65100', fontWeight: 600 }} />
+                      )}
                     </Box>
-                    <Typography variant="body1" color="textSecondary">{trip.date} • {trip.time.substring(0, 5)}</Typography>
+                    <Typography variant="body1" color="textSecondary">{formatDateRelative(trip.date)} • {trip.date} • {trip.time.substring(0, 5)}</Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right' }}>
                     <Typography variant="h4" fontWeight="bold" color="primary">{trip.price_per_seat} zł</Typography>
@@ -278,6 +284,8 @@ export const MyTrips: React.FC = () => {
               <TextField label="Godzina" type="time" name="time" value={formik.values.time} onChange={formik.handleChange} fullWidth InputLabelProps={{ shrink: true }} />
               <TextField label="Miejsca" type="number" name="available_seats" value={formik.values.available_seats} onChange={formik.handleChange} fullWidth />
               <TextField label="Cena" type="number" name="price_per_seat" value={formik.values.price_per_seat} onChange={formik.handleChange} fullWidth />
+              <TextField label="Szacowany czas (min)" type="number" name="estimated_duration_minutes" value={formik.values.estimated_duration_minutes ?? ''} onChange={formik.handleChange} fullWidth inputProps={{ min: 0 }} />
+              <FormControlLabel control={<Checkbox checked={formik.values.luggage_ok ?? true} onChange={(e) => formik.setFieldValue('luggage_ok', e.target.checked)} name="luggage_ok" />} label="Miejsce na bagaż" />
             </Stack>
           </Box>
         </DialogContent>

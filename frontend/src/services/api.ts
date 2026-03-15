@@ -113,6 +113,8 @@ export interface Trip {
   time: string;
   available_seats: number;
   price_per_seat: number;
+  estimated_duration_minutes?: number | null;
+  luggage_ok?: boolean;
   completed?: boolean;
   completed_at?: string | null;
   created_at?: string;
@@ -199,6 +201,8 @@ export interface TripFormData {
   time: string;
   available_seats: number;
   price_per_seat: number;
+  estimated_duration_minutes?: number | null;
+  luggage_ok?: boolean;
 }
 
 export const tripService = {

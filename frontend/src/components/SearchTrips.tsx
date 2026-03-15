@@ -29,7 +29,8 @@ import {
   Star,
   StarBorder,
   Delete as DeleteIcon,
-  CalendarToday
+  CalendarToday,
+  Luggage
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -41,6 +42,7 @@ import { useSnackbar } from 'notistack';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { Trip, tripService, authService, favoriteRouteService, FavoriteRoute } from '../services/api';
+import { formatDateRelative, formatDuration } from '../utils/formatUtils';
 
 const validationSchema = yup.object({
   start_location: yup.string(),
@@ -728,14 +730,27 @@ export const SearchTrips: React.FC = () => {
                   >
                     <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ width: '60%' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, px: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5, px: 2, flexWrap: 'wrap', gap: 1 }}>
                           <Typography variant="h6" sx={{ fontWeight: 700, color: '#424242' }}>{trip.time?.substring(0, 5)}</Typography>
                           <Typography variant="h6" sx={{ fontWeight: 700, color: '#424242' }}>{getArrivalTime(trip.time)}</Typography>
+                          {trip.available_seats === 1 && (
+                            <Chip label="Ostatnie miejsce!" size="small" sx={{ bgcolor: '#fff3e0', color: '#e65100', fontWeight: 600 }} />
+                          )}
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#424242' }}>
                           <Typography variant="body1" sx={{ fontWeight: 500 }}>{trip.start_location}</Typography>
                           <ArrowForward fontSize="small" sx={{ color: '#00aff5', mx: 2 }} />
                           <Typography variant="body1" sx={{ fontWeight: 500 }}>{trip.end_location}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1, flexWrap: 'wrap' }}>
+                          <Typography variant="caption" sx={{ color: '#757575' }}>{formatDateRelative(trip.date)}</Typography>
+                          {trip.estimated_duration_minutes != null && (
+                            <Typography variant="caption" sx={{ color: '#757575' }}>• {formatDuration(trip.estimated_duration_minutes)}</Typography>
+                          )}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Luggage sx={{ fontSize: '16px', color: trip.luggage_ok !== false ? '#00aff5' : '#9e9e9e' }} />
+                            <Typography variant="caption" sx={{ color: '#757575' }}>{trip.luggage_ok !== false ? 'Miejsce na bagaż' : 'Brak miejsca na bagaż'}</Typography>
+                          </Box>
                         </Box>
                       </Box>
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
