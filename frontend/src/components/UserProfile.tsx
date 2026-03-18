@@ -45,6 +45,7 @@ export const UserProfile: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [darkMode, setDarkMode] = useState<boolean>(() => localStorage.getItem('theme_mode_v1') === 'dark');
 
     const formik = useFormik({
         initialValues: {
@@ -109,6 +110,12 @@ export const UserProfile: React.FC = () => {
         fetchProfile();
     }, []);
 
+    const setThemeMode = (isDark: boolean) => {
+        localStorage.setItem('theme_mode_v1', isDark ? 'dark' : 'light');
+        setDarkMode(isDark);
+        window.dispatchEvent(new Event('app-theme-change'));
+    };
+
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             const file = event.target.files[0];
@@ -148,7 +155,7 @@ export const UserProfile: React.FC = () => {
                 </Button>
             </Box>
 
-            <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: '40px', bgcolor: '#f5f5f5' }}>
+            <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: '40px', bgcolor: 'background.paper' }}>
                 {(() => {
                     const hasAvatar = Boolean(avatarPreview);
                     const hasFirstName = Boolean(formik.values.first_name?.trim());
@@ -206,7 +213,7 @@ export const UserProfile: React.FC = () => {
                                     onChange={handleFileChange}
                                 />
                                 <label htmlFor="icon-button-file">
-                                    <IconButton color="primary" aria-label="upload picture" component="span" sx={{ position: 'absolute', bottom: 10, right: 10, bgcolor: 'white', '&:hover': { bgcolor: '#f5f5f5' } }}>
+                                    <IconButton color="primary" aria-label="upload picture" component="span" sx={{ position: 'absolute', bottom: 10, right: 10, bgcolor: 'background.paper', '&:hover': { bgcolor: 'action.hover' } }}>
                                         <PhotoCamera />
                                     </IconButton>
                                 </label>
@@ -295,6 +302,36 @@ export const UserProfile: React.FC = () => {
                                         bgcolor: 'white', 
                                         borderRadius: '20px', 
                                         px: 2, 
+                                        py: 1,
+                                        width: '100%',
+                                        m: 0,
+                                        alignItems: 'flex-start'
+                                    }}
+                                />
+
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={darkMode}
+                                            onChange={(e) => setThemeMode(e.target.checked)}
+                                            name="dark_mode"
+                                            color="primary"
+                                        />
+                                    }
+                                    label={
+                                        <Box>
+                                            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                                Tryb ciemny
+                                            </Typography>
+                                            <Typography variant="caption" color="textSecondary">
+                                                Zmień motyw aplikacji na ciemny lub jasny
+                                            </Typography>
+                                        </Box>
+                                    }
+                                    sx={{
+                                        bgcolor: 'white',
+                                        borderRadius: '20px',
+                                        px: 2,
                                         py: 1,
                                         width: '100%',
                                         m: 0,

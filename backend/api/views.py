@@ -16,6 +16,16 @@ from .weather_service import weather_service
 logger = logging.getLogger('api')
 
 
+def _is_blocked(a, b) -> bool:
+    """Czy między użytkownikami istnieje relacja blocked (w dowolną stronę)."""
+    if not a or not b:
+        return False
+    return Friendship.objects.filter(
+        Q(status='blocked'),
+        Q(requester=a, receiver=b) | Q(requester=b, receiver=a),
+    ).exists()
+
+
 class UserCreateView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -228,6 +238,11 @@ class TripViewSet(viewsets.ModelViewSet):
                 {'detail': 'Nie możesz zarezerwować miejsca w swoim własnym przejeździe.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        if _is_blocked(request.user, trip.driver):
+            return Response(
+                {'detail': 'Nie możesz rezerwować przejazdów tego użytkownika (blokada).'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         existing_booking = Booking.objects.filter(trip=trip, passenger=request.user).first()
         if existing_booking and existing_booking.status != 'cancelled':
             return Response(
@@ -364,19 +379,52 @@ class TripViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             if booking.status == 'paid':
-                wallet, _ = Wallet.objects.get_or_create(user=request.user)
+                trip_datetime = datetime.combine(trip.date, trip.time or datetime.min.time())
+                time_until_trip = trip_datetime - datetime.now()
+                hours_until_trip = time_until_trip.total_seconds() / 3600
                 total_amount = booking.seats * trip.price_per_seat
-                wallet.balance += total_amount
-                wallet.save()
-                Transaction.objects.create(
-                    user=request.user,
-                    transaction_type='refund',
-                    amount=total_amount,
-                    booking=booking,
-                    trip=trip,
-                    description=f'Zwrot za anulowaną rezerwację: {trip.start_location} → {trip.end_location}'
-                )
-                logger.info(f"Refund for cancelled booking {booking_id}: {total_amount} zł")
+
+                # Polityka zwrotów:
+                # - >=10h przed odjazdem: 100% zwrot do portfela
+                # - <10h i >=0: 20% zwrot, 20% dla kierowcy, 60% prowizja platformy
+                # - <0: brak zwrotu (no-show)
+                refund_ratio = Decimal('0')
+                driver_ratio = Decimal('0')
+                if hours_until_trip >= 10:
+                    refund_ratio = Decimal('1')
+                elif hours_until_trip >= 0:
+                    refund_ratio = Decimal('0.20')
+                    driver_ratio = Decimal('0.20')
+
+                if refund_ratio > 0:
+                    wallet, _ = Wallet.objects.get_or_create(user=request.user)
+                    refund_amount = (total_amount * refund_ratio).quantize(Decimal('0.01'))
+                    wallet.balance += refund_amount
+                    wallet.save()
+                    Transaction.objects.create(
+                        user=request.user,
+                        transaction_type='refund',
+                        amount=refund_amount,
+                        booking=booking,
+                        trip=trip,
+                        description=f'Zwrot ({int(refund_ratio * 100)}%) za anulowaną rezerwację: {trip.start_location} → {trip.end_location}'
+                    )
+                    logger.info(f"Refund for cancelled booking {booking_id}: {refund_amount} zł")
+
+                if driver_ratio > 0:
+                    driver_wallet, _ = Wallet.objects.get_or_create(user=trip.driver)
+                    driver_amount = (total_amount * driver_ratio).quantize(Decimal('0.01'))
+                    driver_wallet.balance += driver_amount
+                    driver_wallet.save()
+                    Transaction.objects.create(
+                        user=trip.driver,
+                        transaction_type='driver_payment',
+                        amount=driver_amount,
+                        booking=booking,
+                        trip=trip,
+                        description=f'Wypłata ({int(driver_ratio * 100)}%) za anulowanie rezerwacji: {trip.start_location} → {trip.end_location}'
+                    )
+                    logger.info(f"Driver cancellation payout for booking {booking_id}: {driver_amount} zł")
             booking.status = 'cancelled'
             booking.save()
             logger.info(f"Booking {booking_id} cancelled by passenger {request.user.username}")
@@ -458,6 +506,22 @@ class TripViewSet(viewsets.ModelViewSet):
                 {'detail': 'Nie masz uprawnień do anulowania tego przejazdu.'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        # Zwrot środków pasażerom za opłacone rezerwacje (anulowanie przez kierowcę)
+        paid_bookings = trip.bookings.filter(status='paid')
+        for booking in paid_bookings:
+            total_amount = booking.seats * trip.price_per_seat
+            passenger_wallet, _ = Wallet.objects.get_or_create(user=booking.passenger)
+            passenger_wallet.balance += total_amount
+            passenger_wallet.save()
+            Transaction.objects.create(
+                user=booking.passenger,
+                transaction_type='refund',
+                amount=total_amount,
+                booking=booking,
+                trip=trip,
+                description=f'Zwrot (100%) – przejazd odwołany przez kierowcę: {trip.start_location} → {trip.end_location}'
+            )
+
         trip_id = trip.id
         trip_route = f"{trip.start_location} → {trip.end_location}"
         trip.delete()
@@ -660,6 +724,19 @@ class TripSearchView(generics.ListAPIView):
     
     def get_queryset(self):
         queryset = Trip.objects.exclude(driver=self.request.user)
+        # Ukryj przejazdy użytkowników zablokowanych (w obie strony)
+        blocked_pairs = Friendship.objects.filter(
+            Q(status='blocked'),
+            Q(requester=self.request.user) | Q(receiver=self.request.user),
+        ).values_list('requester_id', 'receiver_id')
+        blocked_flat = set()
+        for r_id, recv_id in blocked_pairs:
+            if r_id != self.request.user.id:
+                blocked_flat.add(r_id)
+            if recv_id != self.request.user.id:
+                blocked_flat.add(recv_id)
+        if blocked_flat:
+            queryset = queryset.exclude(driver_id__in=list(blocked_flat))
         start_location = self.request.query_params.get('start_location', None)
         end_location = self.request.query_params.get('end_location', None)
         trip_date = self.request.query_params.get('date', None)
@@ -922,6 +999,9 @@ class MessageViewSet(viewsets.ModelViewSet):
                     return Message.objects.none()
                 if booking.status not in ['accepted', 'paid']:
                     return Message.objects.none()
+                other = booking.passenger if booking.trip.driver == user else booking.trip.driver
+                if _is_blocked(user, other):
+                    return Message.objects.none()
                 return Message.objects.filter(booking=booking).order_by('created_at')
             except Booking.DoesNotExist:
                 return Message.objects.none()
@@ -943,6 +1023,8 @@ class MessageViewSet(viewsets.ModelViewSet):
         if booking.status not in ['accepted', 'paid']:
             raise serializers.ValidationError({'detail': 'Możesz wysyłać wiadomości tylko dla zaakceptowanych rezerwacji.'})
         recipient = booking.passenger if booking.trip.driver == user else booking.trip.driver
+        if _is_blocked(user, recipient):
+            raise serializers.ValidationError({'detail': 'Nie możesz wysyłać wiadomości do tego użytkownika (blokada).'})
         serializer.save(
             sender=user,
             recipient=recipient,

@@ -66,9 +66,35 @@ const MyBookings: React.FC = () => {
     }
   };
 
+  const getRefundPreview = (tripDate: string, tripTime: string | undefined, total: number) => {
+    const date = new Date(tripDate);
+    if (tripTime) {
+      const [h, m] = tripTime.split(':').map(Number);
+      date.setHours(h, m, 0, 0);
+    } else {
+      date.setHours(0, 0, 0, 0);
+    }
+    const now = new Date();
+    const diffHours = (date.getTime() - now.getTime()) / (1000 * 60 * 60);
+    if (diffHours < 0) {
+      return { percent: 0, driverPercent: 0, message: 'Po odjeździe: brak zwrotu (no-show).' };
+    }
+    if (diffHours >= 10) {
+      return { percent: 100, driverPercent: 0, message: 'Anulowanie ≥ 10h przed: zwrot 100% do portfela.' };
+    }
+    return { percent: 20, driverPercent: 20, message: 'Anulowanie < 10h przed: zwrot 20%, kierowca 20%, platforma 60%.' };
+  };
+
   const handleCancelBooking = async (booking: Booking) => {
     if (!booking.trip_details?.id) return;
-    if (!window.confirm('Czy na pewno anulować tę rezerwację?')) return;
+    const trip = booking.trip_details;
+    const totalPrice = parseFloat(trip.price_per_seat) * booking.seats;
+    const refundInfo = getRefundPreview(trip.date, trip.time || undefined, totalPrice);
+    const confirmText =
+      booking.status === 'paid'
+        ? `Czy na pewno anulować tę rezerwację?\n\n${refundInfo.message}`
+        : 'Czy na pewno anulować tę rezerwację?';
+    if (!window.confirm(confirmText)) return;
     try {
       await tripService.cancelBooking(booking.trip_details.id, booking.id);
       enqueueSnackbar('Rezerwacja anulowana', { variant: 'info' });
@@ -121,13 +147,13 @@ const MyBookings: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ 
         p: 3, 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
         borderBottom: '1px solid #e0e0e0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
@@ -152,7 +178,7 @@ const MyBookings: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': { backgroundColor: '#f5f5f5' }
             }}
           >
@@ -165,7 +191,7 @@ const MyBookings: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': { backgroundColor: '#f5f5f5' }
             }}
           >
@@ -220,7 +246,17 @@ const MyBookings: React.FC = () => {
                       {(booking.status === 'accepted' || booking.status === 'paid') && booking.trip_details && (
                         <Box sx={{ mt: 2, p: 1.5, bgcolor: booking.status === 'paid' ? '#e8f5e9' : '#fff3e0', borderRadius: 2 }}>
                           {booking.status === 'paid' ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CheckCircle color="success" fontSize="small" /><Typography variant="body2" color="success.main" fontWeight="bold">Opłacone {booking.paid_at && new Date(booking.paid_at).toLocaleString('pl-PL')}</Typography></Box>
+                          <Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CheckCircle color="success" fontSize="small" />
+                              <Typography variant="body2" color="success.main" fontWeight="bold">
+                                Opłacone {booking.paid_at && new Date(booking.paid_at).toLocaleString('pl-PL')}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                              {getRefundPreview(trip.date, trip.time || undefined, totalPrice).message}
+                            </Typography>
+                          </Box>
                           ) : (
                             (() => {
                               const paymentInfo = calculateTimeUntilPaymentDeadline(booking.trip_details.date, booking.trip_details.time || undefined);
@@ -239,7 +275,7 @@ const MyBookings: React.FC = () => {
                   <Divider sx={{ my: 2 }} />
                   <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                     <Button variant="outlined" onClick={() => navigate(`/trips/${trip.id}`)} sx={{ borderRadius: '20px' }}>Szczegóły</Button>
-                    {booking.status !== 'cancelled' && booking.status !== 'paid' && (
+                    {booking.status !== 'cancelled' && (
                       <Button variant="outlined" color="error" startIcon={<Cancel />} onClick={() => handleCancelBooking(booking)} sx={{ borderRadius: '20px' }}>Anuluj</Button>
                     )}
                   </Box>

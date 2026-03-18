@@ -166,13 +166,13 @@ export const MyTrips: React.FC = () => {
   });
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ 
         p: 3, 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
         borderBottom: '1px solid #e0e0e0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
@@ -197,7 +197,7 @@ export const MyTrips: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': { backgroundColor: '#f5f5f5' }
             }}
           >
@@ -210,7 +210,7 @@ export const MyTrips: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': { backgroundColor: '#f5f5f5' }
             }}
           >
@@ -223,13 +223,13 @@ export const MyTrips: React.FC = () => {
         {loading ? (
           <Box display='flex' justifyContent='center'><CircularProgress /></Box>
         ) : trips.length === 0 ? (
-          <Paper elevation={0} sx={{ bgcolor: '#ffffff', p: 6, borderRadius: '16px', textAlign: 'center', border: '1px solid #e0e0e0' }}>
+          <Paper elevation={0} sx={{ bgcolor: 'background.paper', p: 6, borderRadius: '16px', textAlign: 'center', border: '1px solid', borderColor: 'divider' }}>
             <Typography color="textSecondary">Nie masz jeszcze żadnych przejazdów.</Typography>
           </Paper>
         ) : (
           <Stack spacing={3}>
             {trips.map(trip => (
-              <Paper key={trip.id} elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid #e0e0e0', bgcolor: '#fff', transition: 'all 0.3s', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}>
+              <Paper key={trip.id} elevation={0} sx={{ p: 3, borderRadius: '16px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'all 0.3s', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1, flexWrap: 'wrap' }}>

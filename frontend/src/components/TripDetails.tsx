@@ -106,13 +106,13 @@ export const TripDetails: React.FC = () => {
         : driver_username || 'Nieznany kierowca';
 
     return (
-        <Box sx={{ minHeight: '100vh', bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#e0e0e0', mb: 4 }}>
+        <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', mb: 4 }}>
                 <Typography 
                     variant="h5" 
                     sx={{ 
                         fontWeight: 'bold', 
-                        color: '#000', 
+                            color: 'text.primary', 
                         cursor: 'pointer', 
                         ml: 4 
                     }} 
@@ -132,7 +132,7 @@ export const TripDetails: React.FC = () => {
             <Container maxWidth="lg" sx={{ pb: 8 }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={4}>
                     <Box sx={{ width: { xs: '100%', md: '65%' } }}>
-                        <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#f5f5f5', mb: 4 }}>
+                        <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: 'background.paper', mb: 4 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 1 }}>
                               <Typography variant="h4" fontWeight="bold">{formatDateRelative(trip.date)}</Typography>
                               <Typography variant="body1" color="textSecondary">{trip.date}</Typography>
@@ -189,11 +189,11 @@ export const TripDetails: React.FC = () => {
                             </Box>
                         </Paper>
                         {/* Mapa trasy – wyłączona, do zrobienia od nowa */}
-                        <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#f5f5f5', border: '1px dashed #e0e0e0', mb: 4 }}>
+                        <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: 'background.paper', border: '1px dashed', borderColor: 'divider', mb: 4 }}>
                             <Typography variant="body2" color="text.secondary" textAlign="center">Mapa trasy – wkrótce</Typography>
                         </Paper>
                         {trip && trip.id && <WeatherForecast tripId={trip.id} />}
-                        <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: '#fff', border: '1px solid #e0e0e0' }}>
+                        <Paper elevation={0} sx={{ p: 4, borderRadius: '40px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Udogodnienia i zasady</Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
                                 <Chip icon={<SmokingRooms />} label="Zakaz palenia" variant="outlined" />
@@ -201,7 +201,7 @@ export const TripDetails: React.FC = () => {
                                 <Chip icon={<MusicNote />} label="Muzyka: Rock" variant="outlined" />
                                 <Chip icon={<DirectionsCar />} label="Maks. 2 osoby" variant="outlined" />
                             </Stack>
-                            <Typography variant="body1" sx={{ mt: 3, color: '#757575', lineHeight: 1.8 }}>Jadę bezpośrednio, bez zbędnych postojów. Proszę o punktualność. Mam miejsce na średni bagaż.</Typography>
+                            <Typography variant="body1" sx={{ mt: 3, color: 'text.secondary', lineHeight: 1.8 }}>Jadę bezpośrednio, bez zbędnych postojów. Proszę o punktualność. Mam miejsce na średni bagaż.</Typography>
                         </Paper>
                     </Box>
                     <Box sx={{ width: { xs: '100%', md: '35%' } }}>
