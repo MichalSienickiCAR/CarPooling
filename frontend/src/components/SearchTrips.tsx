@@ -264,8 +264,8 @@ export const SearchTrips: React.FC = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pl">
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa' }}>
-      <Box sx={{ bgcolor: '#ffffff', pb: 3, borderBottom: '1px solid #e0e0e0' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Box sx={{ bgcolor: 'background.paper', pb: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
         <AppBar position="static" color="transparent" elevation={0}>
           <Toolbar sx={{ justifyContent: 'space-between', py: 1 }}>
             <Typography 
@@ -291,7 +291,7 @@ export const SearchTrips: React.FC = () => {
                 sx={{ 
                   textTransform: 'none',
                   fontWeight: 600,
-                  color: '#333',
+                  color: 'text.primary',
                   '&:hover': { backgroundColor: '#f5f5f5' }
                 }} 
                 onClick={() => navigate('/search')}
@@ -409,7 +409,7 @@ export const SearchTrips: React.FC = () => {
                 )
               }}
             />
-            <Box onClick={handlePassengerClick} sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1, borderRadius: '12px', bgcolor: '#f8f9fa', cursor: 'pointer', '&:hover': { bgcolor: '#e3f2fd' } }}>
+              <Box onClick={handlePassengerClick} sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1, borderRadius: '12px', bgcolor: 'background.default', cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
               <PersonOutline sx={{ color: '#00aff5' }} />
               <Typography variant="body2" fontWeight={600}>{passengerCount} {passengerCount === 1 ? 'pasażer' : 'pasażerów'}</Typography>
             </Box>
@@ -575,7 +575,7 @@ export const SearchTrips: React.FC = () => {
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 6 }}>
           <Box sx={{ width: { xs: '100%', md: '25%' } }}>
             {favoriteRoutes.length > 0 && (
-              <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: '16px', bgcolor: '#ffffff', border: '1px solid #e0e0e0' }}>
+              <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#424242' }}>Ulubione trasy</Typography>
                   <Star sx={{ color: '#fbbc05', fontSize: '20px' }} />
@@ -638,7 +638,7 @@ export const SearchTrips: React.FC = () => {
             </Paper>
             )}
             
-            <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', bgcolor: '#ffffff', border: '1px solid #e0e0e0', mb: 3 }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', mb: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#424242', mb: 2 }}>
                 Filtry
               </Typography>
@@ -658,7 +658,7 @@ export const SearchTrips: React.FC = () => {
               />
             </Paper>
 
-            <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', bgcolor: '#ffffff', border: '1px solid #e0e0e0' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#424242', mb: 2 }}>Sortuj według</Typography>
               <RadioGroup value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                 <FormControlLabel 
@@ -710,16 +710,17 @@ export const SearchTrips: React.FC = () => {
                 <Box display="flex" justifyContent="center"><CircularProgress sx={{ color: '#00aff5' }} /></Box>
               ) : (
                 sortedTrips.map((trip) => (
-                  <Paper 
+            <Paper 
                     key={trip.id} 
                     elevation={0} 
                     onClick={() => navigate(`/trips/${trip.id}`)} 
                     sx={{ 
                       borderRadius: '16px', 
                       overflow: 'hidden', 
-                      border: '1px solid #e0e0e0', 
+                      border: '1px solid', 
+                      borderColor: 'divider',
                       cursor: 'pointer', 
-                      bgcolor: '#ffffff',
+                      bgcolor: 'background.paper',
                       transition: 'all 0.2s', 
                       '&:hover': { 
                         transform: 'translateY(-4px)', 
@@ -758,7 +759,7 @@ export const SearchTrips: React.FC = () => {
                         <Typography variant="caption" sx={{ color: '#757575' }}>za osobę</Typography>
                       </Box>
                     </Box>
-                    <Box sx={{ bgcolor: '#f8f9fa', p: 2, px: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ bgcolor: 'background.default', p: 2, px: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Avatar 
                           src={trip.driver_profile?.avatar || undefined} 

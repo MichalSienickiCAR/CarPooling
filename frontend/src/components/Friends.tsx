@@ -103,6 +103,18 @@ const Friends: React.FC = () => {
     }
   };
 
+  const handleBlockUser = async (friendshipId: number) => {
+    if (!window.confirm('Czy na pewno chcesz zablokować tego użytkownika?')) return;
+    try {
+      await friendshipService.blockUser(friendshipId);
+      setSuccessMessage('Użytkownik zablokowany');
+      setTimeout(() => setSuccessMessage(null), 3000);
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Błąd podczas blokowania użytkownika');
+    }
+  };
+
   const renderUserAvatar = (profile: { avatar?: string | null; username: string }) => {
     if (profile.avatar) {
       return <img src={profile.avatar} alt={profile.username} className="user-avatar" />;
@@ -143,6 +155,12 @@ const Friends: React.FC = () => {
                   onClick={() => handleRemoveFriend(friendship.id)}
                 >
                   Usuń
+                </button>
+                <button
+                  className="btn-reject"
+                  onClick={() => handleBlockUser(friendship.id)}
+                >
+                  Zablokuj
                 </button>
               </div>
             </div>

@@ -79,13 +79,13 @@ export const AddTrip: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ 
         p: 3, 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
         borderBottom: '1px solid #e0e0e0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
@@ -110,7 +110,7 @@ export const AddTrip: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': { backgroundColor: '#f5f5f5' }
             }}
           >
@@ -123,7 +123,7 @@ export const AddTrip: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': { backgroundColor: '#f5f5f5' }
             }}
           >
@@ -133,9 +133,9 @@ export const AddTrip: React.FC = () => {
       </Box>
 
       <Container maxWidth="md" sx={{ flexGrow: 1, pb: 8, pt: 4 }}>
-        <Paper elevation={0} sx={{ bgcolor: '#ffffff', p: { xs: 3, md: 6 }, borderRadius: '20px', border: '1px solid #e0e0e0' }}>
+        <Paper elevation={0} sx={{ bgcolor: 'background.paper', p: { xs: 3, md: 6 }, borderRadius: '20px', border: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Dodaj nowy przejazd</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>Dodaj nowy przejazd</Typography>
             {templates.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Użyj szablonu</InputLabel>
@@ -145,7 +145,7 @@ export const AddTrip: React.FC = () => {
               </FormControl>
             )}
           </Box>
-          <Typography variant="body1" sx={{ textAlign: 'center', mb: 6, color: '#757575' }}>Wypełnij szczegóły trasy</Typography>
+          <Typography variant="body1" sx={{ textAlign: 'center', mb: 6, color: 'text.secondary' }}>Wypełnij szczegóły trasy</Typography>
           <Box component="form" onSubmit={formik.handleSubmit}>
             <Stack spacing={3}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>

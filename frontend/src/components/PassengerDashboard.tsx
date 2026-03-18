@@ -14,13 +14,13 @@ export const PassengerDashboard: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ 
         p: 3, 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
         borderBottom: '1px solid #e0e0e0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
@@ -46,7 +46,7 @@ export const PassengerDashboard: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': {
                 backgroundColor: '#f5f5f5',
               }
@@ -61,7 +61,7 @@ export const PassengerDashboard: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': {
                 backgroundColor: '#f5f5f5',
               }

@@ -13,13 +13,13 @@ export const DriverDashboard: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ 
         p: 3, 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
         borderBottom: '1px solid #e0e0e0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
@@ -44,7 +44,7 @@ export const DriverDashboard: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': {
                 backgroundColor: '#f5f5f5',
               }
@@ -59,7 +59,7 @@ export const DriverDashboard: React.FC = () => {
             sx={{ 
               textTransform: 'none', 
               fontWeight: 600,
-              color: '#333',
+              color: 'text.primary',
               '&:hover': {
                 backgroundColor: '#f5f5f5',
               }
@@ -76,13 +76,13 @@ export const DriverDashboard: React.FC = () => {
             variant="h3" 
             fontWeight={700} 
             gutterBottom
-            sx={{ color: '#1a1a1a' }}
+            sx={{ color: 'text.primary' }}
           >
             Panel Kierowcy
           </Typography>
           <Typography 
             variant="h6" 
-            sx={{ color: '#666', fontWeight: 400 }}
+            sx={{ color: 'text.secondary', fontWeight: 400 }}
           >
             Zarządzaj swoimi podróżami w jednym miejscu
           </Typography>
@@ -96,7 +96,7 @@ export const DriverDashboard: React.FC = () => {
               sx={{ 
                 p: 4, 
                 borderRadius: '16px', 
-                bgcolor: '#ffffff', 
+                bgcolor: 'background.paper', 
                 cursor: 'pointer', 
                 transition: 'all 0.3s', 
                 height: '100%', 
@@ -115,7 +115,7 @@ export const DriverDashboard: React.FC = () => {
               <Avatar sx={{ width: 70, height: 70, bgcolor: '#00aff5', mb: 2 }}>
                 <Add fontSize="large" />
               </Avatar>
-              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: 'text.primary' }}>
                 Dodaj Przejazd
               </Typography>
               <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>
@@ -131,7 +131,7 @@ export const DriverDashboard: React.FC = () => {
               sx={{ 
                 p: 4, 
                 borderRadius: '16px', 
-                bgcolor: '#ffffff', 
+                bgcolor: 'background.paper', 
                 cursor: 'pointer', 
                 transition: 'all 0.3s', 
                 height: '100%', 
@@ -150,7 +150,7 @@ export const DriverDashboard: React.FC = () => {
               <Avatar sx={{ width: 70, height: 70, bgcolor: '#34a853', mb: 2 }}>
                 <ListAlt fontSize="large" />
               </Avatar>
-              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: '#1a1a1a' }}>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: 'text.primary' }}>
                 Moje Przejazdy
               </Typography>
               <Typography color="textSecondary" align="center" sx={{ fontSize: '14px' }}>

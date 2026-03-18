@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
 import { Login } from './components/Login';
@@ -24,87 +24,101 @@ import RecurringTrips from './components/RecurringTrips';
 import CssBaseline from '@mui/material/CssBaseline';
 import { SnackbarProvider } from 'notistack';
 import { GoogleCallback } from './components/GoogleCallback';
+import { CookieBanner } from './components/CookieBanner';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { Terms } from './components/Terms';
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#00aff5',
-      light: '#33bff7',
-      dark: '#0099d6',
-    },
-    secondary: {
-      main: '#34a853',
-      light: '#5cb574',
-      dark: '#2d8e46',
-    },
-    background: {
-      default: '#f8f9fa',
-    },
-  },
-  typography: {
-    fontFamily: [
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-    ].join(','),
-    h1: {
-      fontWeight: 700,
-    },
-    h2: {
-      fontWeight: 700,
-    },
-    h3: {
-      fontWeight: 700,
-    },
-    h4: {
-      fontWeight: 700,
-    },
-    h5: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 600,
-    },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          textTransform: 'none',
-          fontWeight: 600,
-          padding: '10px 24px',
-          boxShadow: 'none',
-          '&:hover': {
-            boxShadow: 'none',
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 12,
-          },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-        },
-      },
-    },
-  },
-});
+const THEME_STORAGE_KEY = 'theme_mode_v1';
 
 function App() {
+  const [mode, setMode] = useState<'light' | 'dark'>(() => {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+    return raw === 'dark' ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const onThemeChange = () => {
+      const raw = localStorage.getItem(THEME_STORAGE_KEY);
+      setMode(raw === 'dark' ? 'dark' : 'light');
+    };
+    window.addEventListener('app-theme-change', onThemeChange as EventListener);
+    window.addEventListener('storage', onThemeChange);
+    return () => {
+      window.removeEventListener('app-theme-change', onThemeChange as EventListener);
+      window.removeEventListener('storage', onThemeChange);
+    };
+  }, []);
+
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode,
+          primary: {
+            main: '#00aff5',
+            light: '#33bff7',
+            dark: '#0099d6',
+          },
+          secondary: {
+            main: '#34a853',
+            light: '#5cb574',
+            dark: '#2d8e46',
+          },
+          background: {
+            default: mode === 'dark' ? '#0b0f14' : '#f8f9fa',
+            paper: mode === 'dark' ? '#121822' : '#ffffff',
+          },
+          text: mode === 'dark'
+            ? { primary: '#e6edf3', secondary: '#a8b3c2' }
+            : { primary: '#1a1a1a', secondary: '#666666' },
+        },
+        typography: {
+          fontFamily: [
+            '-apple-system',
+            'BlinkMacSystemFont',
+            '"Segoe UI"',
+            'Roboto',
+            '"Helvetica Neue"',
+            'Arial',
+            'sans-serif',
+          ].join(','),
+          h1: { fontWeight: 700 },
+          h2: { fontWeight: 700 },
+          h3: { fontWeight: 700 },
+          h4: { fontWeight: 700 },
+          h5: { fontWeight: 600 },
+          h6: { fontWeight: 600 },
+        },
+        components: {
+          MuiButton: {
+            styleOverrides: {
+              root: {
+                borderRadius: 12,
+                textTransform: 'none',
+                fontWeight: 600,
+                padding: '10px 24px',
+                boxShadow: 'none',
+                '&:hover': { boxShadow: 'none' },
+              },
+            },
+          },
+          MuiTextField: {
+            styleOverrides: {
+              root: {
+                '& .MuiOutlinedInput-root': { borderRadius: 12 },
+              },
+            },
+          },
+          MuiPaper: {
+            styleOverrides: {
+              root: { borderRadius: 16 },
+            },
+          },
+        },
+      }),
+    [mode],
+  );
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -117,6 +131,7 @@ function App() {
         autoHideDuration={3000}
       >
         <Router>
+          <CookieBanner />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -126,6 +141,8 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/search" element={<SearchTrips />} />
             <Route path="/trips/:id" element={<TripDetails />} />
+            <Route path="/polityka-prywatnosci" element={<PrivacyPolicy />} />
+            <Route path="/regulamin" element={<Terms />} />
 
             {/* Authenticated routes */}
             <Route element={<ProtectedRoute />}> 
